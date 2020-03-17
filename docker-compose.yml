@@ -1,0 +1,13 @@
+version: '2'
+
+services:
+    tauntbot:
+        container_name: tauntbot
+        build:
+            context: ./
+            dockerfile: Dockerfile
+        restart: "always"
+        volumes :
+            - ./config:/usr/src/app/config
+            - ./audio:/usr/src/app/audio
+            - ./stats:/usr/src/app/stats
