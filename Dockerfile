@@ -6,7 +6,7 @@ RUN apk update; apk upgrade; apk add ca-certificates libtool autoconf automake g
 
 COPY package*.json ./
 
-RUN npm install
+RUN npm ci --only=production
 
 FROM node:12-alpine
 
