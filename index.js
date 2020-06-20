@@ -188,7 +188,7 @@ function play(guildid) {
         else {
             delete guildQueue[guildid];
             delete nowPlaying[guildid];
-            if (connection) {
+            if (connection && connection.status !== Discord.Constants.VoiceStatus.DISCONNECTED) {
                 connection.disconnect();
             }
         }
