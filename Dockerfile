@@ -1,27 +1,23 @@
-FROM node:12-alpine as npm-install
+FROM node:alpine as npm-install
 
 WORKDIR /usr/src/app
 
-RUN apk update; apk upgrade; apk add ca-certificates libtool autoconf automake git python make gcc g++
+RUN apk add --no-cache libtool autoconf automake python3 make g++
 
 COPY package*.json ./
 
 RUN npm ci --only=production
 
-FROM node:12-alpine
-
-RUN apk update; apk upgrade; apk add ca-certificates ffmpeg
-
-COPY --from=npm-install /usr/src/app /usr/src/app
+FROM node:alpine
 
 WORKDIR /usr/src/app
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup && chown appuser .
-
-USER appuser
+COPY --from=npm-install /usr/src/app /usr/src/app
 
 COPY . .
 
-RUN mkdir stats
+RUN apk add --no-cache ffmpeg && addgroup -S appgroup && adduser -S appuser -G appgroup && chown appuser . && mkdir stats
+
+USER appuser
 
 CMD [ "node", "index.js"]

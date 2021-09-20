@@ -7,19 +7,19 @@
 
 */
 const Discord = require('discord.js');
+const Voice = require('@discordjs/voice');
 const fs = require('fs');
 const path = require('path');
-const DBL = require('dblapi.js');
-const { stringify } = require('querystring');
-const phin = require('phin');
+const DBL = require('topgg-autoposter').AutoPoster;
 const log = require('loglevel');
 const Config = require('./config');
 const config = new Config('config/config.json');
-const client = new Discord.Client();
+const client = new Discord.Client({
+    intents: [Discord.Intents.FLAGS.GUILDS, Discord.Intents.FLAGS.GUILD_MESSAGES, Discord.Intents.FLAGS.GUILD_VOICE_STATES]
+});
 const ZEROWIDTH_SPACE = String.fromCharCode(parseInt('200B', 16));
 const mentionId = new RegExp(`<@!?([0-9]+)>`);
 const otherPrefix = config.get('prefix');
-let dbl;
 let mentionPrefix;
 let guildQueue = {};
 let nowPlaying = {};
@@ -35,14 +35,6 @@ let stats = {
     }
 };
 
-if (config.get('discordBotsToken')) {
-    dbl = new DBL(config.get('discordBotsToken'), client);
-
-    dbl.on('error', e => {
-        log.error(`Error posting server count to DBL: ${e}`);
-    })
-}
-
 log.setLevel(config.get('loglevel', 'warn'));
 
 function setGame() {
@@ -54,7 +46,7 @@ function updateServerCount() {
     if (stats.server_count != client.guilds.cache.size) {
         stats.server_count = client.guilds.cache.size;
         log.info(`Currently connected to ${stats.server_count} servers`);
-        fs.writeFile(path.join(config.get('statsDirectory'), 'serverCount.txt'), stats.server_count, function (err) {
+        fs.writeFile(path.join(config.get('statsDirectory'), 'serverCount.txt'), `${stats.server_count}`, function (err) {
             if (err) { log.error(`Error saving server count: ${err}`); }
         });
     }
@@ -108,13 +100,13 @@ function doesCommandMatch(str, commands) {
         if (typeof command === 'string') {
             if (str.startsWith(command)) {
                 let ret = str.substring(command.length, str.length).trim();
-                return (ret) ? ret.split(' ') : [];
+                return (ret) ? ret : true;
             }
         }
         else {
             if (str.match(command)) {
                 let ret = str.replace(command, '').trim();
-                return (ret) ? ret.split(' ') : [];
+                return (ret) ? ret : true;
             }
         }
     }
@@ -131,7 +123,7 @@ function sendMessage(message, trigger) {
         message = ZEROWIDTH_SPACE + message;
     }
     trigger.channel.send(message)
-        .catch(reason => {
+        .catch(() => {
             trigger.author.send(message)
                 .catch(e => {
                     log.error(`Couldn't reply to user ${trigger.author.id} - ${e}`);
@@ -177,43 +169,47 @@ async function queueAudio(options) {
 
 function play(guildid) {
     let playerOptions = guildQueue[guildid].shift();
-    let connection;
-    let finish = (err = null) => {
-        if (err) {
-            log.error(err);
-        }
+    let connection, player;
+    let finish = () => {
         if (guildQueue[guildid] && guildQueue[guildid].length) {
             play(guildid);
         }
         else {
             delete guildQueue[guildid];
             delete nowPlaying[guildid];
-            if (connection && connection.status !== Discord.Constants.VoiceStatus.DISCONNECTED) {
-                connection.disconnect();
+            if (connection && player) {
+                connection.destroy();
+                player.stop();
             }
         }
     }
-    playerOptions.channel.join()
-        .then(c => { // connection is VoiceConnection
-            connection = c;
-            log.info(`playing ${playerOptions.file} on ${playerOptions.channel.guild.name}`);
-            let dispatcher = connection.play(
-                fs.createReadStream(playerOptions.file),
-                {
-                    volume: config.get('volume', 0.35),
-                    bitrate: 'auto'
-                });
-            playerOptions.dispatcher = dispatcher;
-            nowPlaying[guildid] = playerOptions;
-            dispatcher.on('speaking', (speaking) => {
-                if (!speaking) {
-                    incrementTauntCount(playerOptions.type);
-                    finish();
-                }
-            })
-            dispatcher.on('end', finish);
-            dispatcher.on('error', finish);
-        }).catch(finish);
+    let playaudio = () => {
+        log.info(`playing ${playerOptions.file} on ${playerOptions.channel.guild.name}`);
+        incrementTauntCount(playerOptions.type)
+        player.play(Voice.createAudioResource(fs.createReadStream(playerOptions.file), { inputType: Voice.StreamType.OggOpus }));
+    };
+    player = playerOptions.playerobj = (guildid in nowPlaying && nowPlaying[guildid].playerobj) || createAudioPlayer(finish);
+    connection = playerOptions.connection = Voice.joinVoiceChannel({
+        channelId: playerOptions.channel.id,
+        guildId: playerOptions.channel.guild.id,
+        adapterCreator: playerOptions.channel.guild.voiceAdapterCreator
+    });
+    nowPlaying[guildid] = playerOptions;
+    connection.subscribe(player);
+    if (connection.state.status === Voice.VoiceConnectionStatus.Ready) {
+        playaudio();
+    }
+    else {
+        connection.on(Voice.VoiceConnectionStatus.Ready, playaudio);
+    }
+}
+
+function createAudioPlayer(callback) {
+    let player = Voice.createAudioPlayer();
+    player.on(Voice.AudioPlayerStatus.Idle, callback);
+    player.on(Voice.AudioPlayerStatus.Paused, callback);
+    player.on('error', callback);
+    return player;
 }
 
 client.on('ready', () => {
@@ -234,6 +230,9 @@ client.on('ready', () => {
     setGame();
     console.log('Taunt Bot 2 by Cory Sanin');
     updateServerCount();
+    if (config.get('discordBotsToken')) {
+        DBL(config.get('discordBotsToken'), client);
+    }
 });
 
 client.on('error', (err) => {
@@ -248,11 +247,11 @@ client.on('guildDelete', guild => {
     updateServerCount();
 });
 
-client.on('message', message => {
-    if (message.guild) {
+client.on('messageCreate', message => {
+    if (message.guild && !message.author.bot) {
         let command = getCommand(message.content);
         let arg, type, file;
-        if (!message.author.bot && command !== false) {
+        if (command !== false) {
             if (message.member.voice.channel) {
                 if (arg = doesCommandMatch(command, [/^(win|victory)/])) {
                     type = 'victory';
@@ -264,7 +263,7 @@ client.on('message', message => {
                     type = 'lose';
                 }
                 if (type) {
-                    file = ((arg.length) ? getIdFromMention(arg[0]) : message.author.id);
+                    file = (typeof arg === 'string' && getIdFromMention(arg.split(' ')[0])) || message.author.id;
                     let filename = path.join(config.get('audioDirectory'), `${file}_${type}.ogg`);
                     fs.exists(filename, (exists) => {
                         if (exists) {
@@ -276,7 +275,7 @@ client.on('message', message => {
                             });
                         }
                         else {
-                            sendMessage(`You need to upload a ${type} taunt. Go to ${config.get('website')} to add one.`, message);
+                            sendMessage(`You need to upload a ${type} taunt. Go to <${config.get('website')}> to add one.`, message);
                         }
                     })
                 }
@@ -284,46 +283,48 @@ client.on('message', message => {
             if (!type) {
                 if (command === '' || (arg = doesCommandMatch(command, ['help']))) {
                     sendMessage({
-                        embed: {
-                            author: {
-                                name: client.user.username,
-                                url: 'https://taunt.bot',
-                                iconURL: client.user.avatarURL()
-                            },
-                            description: (`Every time you win, listen to your anthem by joining a voice channel and entering \`${otherPrefix}win\`` +
-                                ` in the chat. For smaller achievements, use \`${otherPrefix}mvp\` to hear a shorter audio track of your choosing. ` +
-                                `To get started, log in with your Discord account at [${config.get('website')}](${config.get('website')}). ` +
-                                "Lastly, upload your taunts and you'll be ready to go! " +
-                                "\n*You must be connected to a voice channel for it to work.* " +
-                                "\nCreated by Cory Sanin (AKA WORM)"),
-                            color: config.get('color', 0),
-                            fields: [
-                                {
-                                    name: `${otherPrefix}win`,
-                                    value: `Plays your victory track. Optionally, you can play someone else's win anthem by mentioning them. Example: \`${otherPrefix}win @${client.user.username}\``
+                        embeds: [
+                            {
+                                author: {
+                                    name: client.user.username,
+                                    url: 'https://taunt.bot',
+                                    iconURL: client.user.avatarURL()
                                 },
-                                {
-                                    name: `${otherPrefix}mvp`,
-                                    value: `Plays your mvp track. Optionally, you can play someone else's mvp anthem by mentioning them. Example: \`${otherPrefix}mvp @${client.user.username}\``
-                                },
-                                {
-                                    name: `${otherPrefix}lose`,
-                                    value: `Plays your lose track. Optionally, you can play someone else's lose anthem by mentioning them. Example: \`${otherPrefix}lose @${client.user.username}\``
-                                },
-                                {
-                                    name: `${otherPrefix}stop`,
-                                    value: 'Cancels the current track, if you started it (or if you\'re an admin)'
-                                },
-                                {
-                                    name: `${otherPrefix}invite`,
-                                    value: 'Generates a link to invite Taunt Bot to a server near you!'
-                                },
-                                {
-                                    name: `${otherPrefix}help`,
-                                    value: 'Displays this help message'
-                                }
-                            ]
-                        }
+                                description: (`Every time you win, listen to your anthem by joining a voice channel and entering \`${otherPrefix}win\`` +
+                                    ` in the chat. For smaller achievements, use \`${otherPrefix}mvp\` to hear a shorter audio track of your choosing. ` +
+                                    `To get started, log in with your Discord account at [${config.get('website')}](${config.get('website')}). ` +
+                                    "Lastly, upload your taunts and you'll be ready to go! " +
+                                    "\n*You must be connected to a voice channel for it to work.* " +
+                                    "\nCreated by Cory Sanin (AKA WORM)"),
+                                color: config.get('color', 0),
+                                fields: [
+                                    {
+                                        name: `${otherPrefix}win`,
+                                        value: `Plays your victory track. Optionally, you can play someone else's win anthem by mentioning them. Example: \`${otherPrefix}win @${client.user.username}\``
+                                    },
+                                    {
+                                        name: `${otherPrefix}mvp`,
+                                        value: `Plays your mvp track. Optionally, you can play someone else's mvp anthem by mentioning them. Example: \`${otherPrefix}mvp @${client.user.username}\``
+                                    },
+                                    {
+                                        name: `${otherPrefix}lose`,
+                                        value: `Plays your lose track. Optionally, you can play someone else's lose anthem by mentioning them. Example: \`${otherPrefix}lose @${client.user.username}\``
+                                    },
+                                    {
+                                        name: `${otherPrefix}stop`,
+                                        value: 'Cancels the current track, if you started it (or if you\'re an admin)'
+                                    },
+                                    {
+                                        name: `${otherPrefix}invite`,
+                                        value: 'Generates a link to invite Taunt Bot to a server near you!'
+                                    },
+                                    {
+                                        name: `${otherPrefix}help`,
+                                        value: 'Displays this help message'
+                                    }
+                                ]
+                            }
+                        ]
                     }, message);
                 }
                 else if (arg = doesCommandMatch(command, ['invite'])) {
@@ -363,7 +364,7 @@ client.on('message', message => {
                             || message.member.hasPermission('MANAGE_CHANNELS')
                             || message.member.hasPermission('KICK_MEMBERS')
                             || message.member.hasPermission('MOVE_MEMBERS')) {
-                            playing.dispatcher.end();
+                            playing.playerobj.pause();
                         }
                     }
                 }
@@ -382,7 +383,6 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
             type,
             channel: newMember.channel
         };
-        let guild = newMember.channel.guild;
         fs.exists(options.file, (exists) => {
             if (exists) {
                 queueAudio(options);
