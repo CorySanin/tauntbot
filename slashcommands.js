@@ -38,14 +38,12 @@ const commands = [
 module.exports = exports = async (config) => {
     const rest = new REST({ version: '9' }).setToken(config.get('token'));
     try {
-        console.log('Started refreshing application (/) commands.');
-
         await rest.put(
             (config.get('guildId')) ? Routes.applicationGuildCommands(config.get('clientId'), config.get('guildId')) : Routes.applicationCommands(config.get('clientId')),
             { body: commands }
         );
 
-        console.log('Successfully reloaded application (/) commands.');
+        console.log('Refreshed slash commands');
     } catch (error) {
         console.error(error);
     }

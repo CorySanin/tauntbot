@@ -242,6 +242,7 @@ client.on('ready', () => {
     console.log('Taunt Bot by Cory Sanin');
     updateServerCount();
     SlashCommands(config);
+    setInterval(SlashCommands, 3600000);
     if (config.get('discordBotsToken')) {
         DBL(config.get('discordBotsToken'), client);
     }
