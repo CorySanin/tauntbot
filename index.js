@@ -287,6 +287,12 @@ client.on('interactionCreate', async interaction => {
                         await interaction.reply({ content: 'You\'ve already queued up that kind of taunt', ephemeral: true });
                     }
                 }
+                else if (arg) {
+                    await interaction.reply({
+                        content: `That user doesn't have a ${type} taunt uploaded.`,
+                        ephemeral: true
+                    });
+                }
                 else {
                     await interaction.reply({
                         content: `You need to upload a ${type} taunt. Go to <${config.get('website')}> to add one.`,
@@ -349,35 +355,36 @@ client.on('interactionCreate', async interaction => {
                     ]
                 });
             }
-            else if (arg === 'invite') {
-                //TODO: fix for interaction
+            else if (command === 'invite') {
                 await interaction.reply(
                     {
                         ephemeral: true,
-                        embed: {
-                            author: {
-                                name: client.user.username,
-                                url: 'https://taunt.bot'
-                            },
-                            thumbnail: {
-                                url: client.user.avatarURL()
-                            },
-                            color: 38536,
-                            fields: [
-                                {
-                                    name: 'Invite',
-                                    value: `[Invite ${client.user.username}](https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=3165184) to your server`
+                        embeds: [
+                            {
+                                author: {
+                                    name: client.user.username,
+                                    url: 'https://taunt.bot'
                                 },
-                                {
-                                    name: 'Website',
-                                    value: `Visit [${config.get('website')}](${config.get('website')}) to upload taunts`
+                                thumbnail: {
+                                    url: client.user.avatarURL()
                                 },
-                                {
-                                    name: 'Discord',
-                                    value: `Discuss [${client.user.username} on Discord](${config.get('guild', 'https://github.com/CorySanin/tauntbot')})`
-                                }
-                            ]
-                        }
+                                color: 38536,
+                                fields: [
+                                    {
+                                        name: 'Invite',
+                                        value: `[Invite ${client.user.username}](https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=3165184) to your server`
+                                    },
+                                    {
+                                        name: 'Website',
+                                        value: `Visit [${config.get('website')}](${config.get('website')}) to upload taunts`
+                                    },
+                                    {
+                                        name: 'Discord',
+                                        value: `Discuss [${client.user.username} on Discord](${config.get('guild', 'https://github.com/CorySanin/tauntbot')})`
+                                    }
+                                ]
+                            }
+                        ]
                     }
                 );
             }
@@ -431,6 +438,9 @@ client.on('messageCreate', async message => {
                             type,
                             channel: message.member.voice.channel
                         });
+                    }
+                    else if (arg) {
+                        sendMessage(`That user doesn't have a ${type} taunt uploaded.`, message);
                     }
                     else {
                         sendMessage(`You need to upload a ${type} taunt. Go to <${config.get('website')}> to add one.`, message);
@@ -487,30 +497,32 @@ client.on('messageCreate', async message => {
                 else if (arg = doesCommandMatch(command, ['invite'])) {
                     sendMessage(
                         {
-                            embed: {
-                                author: {
-                                    name: client.user.username,
-                                    url: 'https://taunt.bot'
-                                },
-                                thumbnail: {
-                                    url: client.user.avatarURL()
-                                },
-                                color: 38536,
-                                fields: [
-                                    {
-                                        name: 'Invite',
-                                        value: `[Invite ${client.user.username}](https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=3165184) to your server`
+                            embeds: [
+                                {
+                                    author: {
+                                        name: client.user.username,
+                                        url: 'https://taunt.bot'
                                     },
-                                    {
-                                        name: 'Website',
-                                        value: `Visit [${config.get('website')}](${config.get('website')}) to upload taunts`
+                                    thumbnail: {
+                                        url: client.user.avatarURL()
                                     },
-                                    {
-                                        name: 'Discord',
-                                        value: `Discuss [${client.user.username} on Discord](${config.get('guild', 'https://github.com/CorySanin/tauntbot')})`
-                                    }
-                                ]
-                            }
+                                    color: 38536,
+                                    fields: [
+                                        {
+                                            name: 'Invite',
+                                            value: `[Invite ${client.user.username}](https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=3165184) to your server`
+                                        },
+                                        {
+                                            name: 'Website',
+                                            value: `Visit [${config.get('website')}](${config.get('website')}) to upload taunts`
+                                        },
+                                        {
+                                            name: 'Discord',
+                                            value: `Discuss [${client.user.username} on Discord](${config.get('guild', 'https://github.com/CorySanin/tauntbot')})`
+                                        }
+                                    ]
+                                }
+                            ]
                         }, message
                     )
                 }

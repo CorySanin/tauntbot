@@ -27,9 +27,9 @@ const commands = [
     new SlashCommandBuilder()
         .setName('stop')
         .setDescription('Cancels the current track if you started it or if you\'re an admin'),
-    // new SlashCommandBuilder()
-    //     .setName('invite')
-    //     .setDescription('Generates a link to invite Taunt Bot to a new guild'),
+    new SlashCommandBuilder()
+        .setName('invite')
+        .setDescription('Generates a link to invite Taunt Bot to a new guild'),
     new SlashCommandBuilder()
         .setName('help')
         .setDescription('Displays a help message in chat')
