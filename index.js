@@ -9,10 +9,12 @@
 const Discord = require('discord.js');
 const Voice = require('@discordjs/voice');
 const fs = require('fs');
+const fsp = fs.promises;
 const path = require('path');
 const DBL = require('topgg-autoposter').AutoPoster;
 const log = require('loglevel');
 const Config = require('./config');
+const SlashCommands = require('./slashcommands');
 const config = new Config('config/config.json');
 const client = new Discord.Client({
     intents: [Discord.Intents.FLAGS.GUILDS, Discord.Intents.FLAGS.GUILD_MESSAGES, Discord.Intents.FLAGS.GUILD_VOICE_STATES]
@@ -113,6 +115,18 @@ function doesCommandMatch(str, commands) {
     return false;
 }
 
+function tauntExists(file) {
+    return new Promise(async (resolve) => {
+        try {
+            await fsp.access(file, fs.constants.R_OK);
+            resolve(true);
+        }
+        catch {
+            resolve(false);
+        }
+    });
+}
+
 function getIdFromMention(str) {
     let match = str.match(mentionId);
     return match ? match[1] : match;
@@ -136,22 +150,15 @@ function compareQueueItems(obj1, obj2) {
 }
 
 function isAlreadyQd(options) {
-    let match = false;
-    const promises = guildQueue[options.channel.guild.id].map(async (op) => {
-        match = match || compareQueueItems(options, op);
-    })
-
-    return new Promise(async resolve => {
-        await Promise.all(promises);
-        resolve(match);
-    })
+    return compareQueueItems(options, nowPlaying[options.channel.guild.id])
+        || guildQueue[options.channel.guild.id].some(q => compareQueueItems(options, q));
 }
 
 async function queueAudio(options) {
     if ('file' in options && 'player' in options && 'type' in options && 'channel' in options) {
         let guildid = options.channel.guild.id;
         if (guildQueue[guildid]) {
-            if (!await isAlreadyQd(options)) {
+            if (!isAlreadyQd(options)) {
                 if (options.type === 'intro') {
                     guildQueue[guildid].unshift(options);
                 }
@@ -159,11 +166,15 @@ async function queueAudio(options) {
                     guildQueue[guildid].push(options);
                 }
             }
+            else {
+                return false;
+            }
         }
         else {
             guildQueue[guildid] = [options];
             play(guildid);
         }
+        return true;
     }
 }
 
@@ -228,14 +239,15 @@ client.on('ready', () => {
         }
     });
     setGame();
-    console.log('Taunt Bot 2 by Cory Sanin');
+    console.log('Taunt Bot by Cory Sanin');
     updateServerCount();
+    SlashCommands(config);
     if (config.get('discordBotsToken')) {
         DBL(config.get('discordBotsToken'), client);
     }
 });
 
-client.on('error', (err) => {
+client.on('error', err => {
     log.error(`discord.js client error: ${err.name} - ${err.message}`);
 });
 
@@ -247,7 +259,154 @@ client.on('guildDelete', guild => {
     updateServerCount();
 });
 
-client.on('messageCreate', message => {
+client.on('interactionCreate', async interaction => {
+    if (interaction.isCommand() && interaction.member && interaction.member.guild && !interaction.member.user.bot) {
+        let command = interaction.commandName;
+        let arg = interaction.options.getMember('member');
+        let type, file;
+        if (command === 'win') {
+            type = 'victory';
+        }
+        else if (command === 'mvp' || command === 'lose') {
+            type = command;
+        }
+        if (type) {
+            if (interaction.member.voice.channel) {
+                file = (arg || interaction.member).id;
+                let filename = path.join(config.get('audioDirectory'), `${file}_${type}.ogg`);
+                if (await tauntExists(filename)) {
+                    if (await queueAudio({
+                        file: filename,
+                        player: interaction.member.id,
+                        type,
+                        channel: interaction.member.voice.channel
+                    })) {
+                        await interaction.reply(`Playing ${(arg || interaction.member).displayName}'s ${type} taunt in :loud_sound: ${interaction.member.voice.channel.name}`);
+                    }
+                    else {
+                        await interaction.reply({ content: 'You\'ve already queued up that kind of taunt', ephemeral: true });
+                    }
+                }
+                else {
+                    await interaction.reply({
+                        content: `You need to upload a ${type} taunt. Go to <${config.get('website')}> to add one.`,
+                        ephemeral: true
+                    });
+                }
+            }
+            else {
+                await interaction.reply({
+                    content: `You need to be in a voice channel to summon ${client.user.username}`,
+                    ephemeral: true
+                });
+            }
+        }
+        else {
+            if (command === 'help') {
+                await interaction.reply({
+                    ephemeral: true,
+                    embeds: [
+                        {
+                            author: {
+                                name: client.user.username,
+                                url: 'https://taunt.bot',
+                                iconURL: client.user.avatarURL()
+                            },
+                            description: (`Every time you win, listen to your anthem by joining a voice channel and entering \`${otherPrefix}win\`` +
+                                ` in the chat. For smaller achievements, use \`${otherPrefix}mvp\` to hear a shorter audio track of your choosing. ` +
+                                `To get started, log in with your Discord account at [${config.get('website')}](${config.get('website')}). ` +
+                                "Lastly, upload your taunts and you'll be ready to go! " +
+                                "\n*You must be connected to a voice channel for it to work.* " +
+                                "\nCreated by Cory Sanin (AKA WORM)"),
+                            color: config.get('color', 0),
+                            fields: [
+                                {
+                                    name: `${otherPrefix}win`,
+                                    value: `Plays your victory track. Optionally, you can play someone else's win anthem by mentioning them. Example: \`${otherPrefix}win @${client.user.username}\``
+                                },
+                                {
+                                    name: `${otherPrefix}mvp`,
+                                    value: `Plays your mvp track. Optionally, you can play someone else's mvp anthem by mentioning them. Example: \`${otherPrefix}mvp @${client.user.username}\``
+                                },
+                                {
+                                    name: `${otherPrefix}lose`,
+                                    value: `Plays your lose track. Optionally, you can play someone else's lose anthem by mentioning them. Example: \`${otherPrefix}lose @${client.user.username}\``
+                                },
+                                {
+                                    name: `${otherPrefix}stop`,
+                                    value: 'Cancels the current track, if you started it (or if you\'re an admin)'
+                                },
+                                {
+                                    name: `${otherPrefix}invite`,
+                                    value: 'Generates a link to invite Taunt Bot to a server near you!'
+                                },
+                                {
+                                    name: `${otherPrefix}help`,
+                                    value: 'Displays this help message'
+                                }
+                            ]
+                        }
+                    ]
+                });
+            }
+            else if (arg === 'invite') {
+                //TODO: fix for interaction
+                await interaction.reply(
+                    {
+                        ephemeral: true,
+                        embed: {
+                            author: {
+                                name: client.user.username,
+                                url: 'https://taunt.bot'
+                            },
+                            thumbnail: {
+                                url: client.user.avatarURL()
+                            },
+                            color: 38536,
+                            fields: [
+                                {
+                                    name: 'Invite',
+                                    value: `[Invite ${client.user.username}](https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=3165184) to your server`
+                                },
+                                {
+                                    name: 'Website',
+                                    value: `Visit [${config.get('website')}](${config.get('website')}) to upload taunts`
+                                },
+                                {
+                                    name: 'Discord',
+                                    value: `Discuss [${client.user.username} on Discord](${config.get('guild', 'https://github.com/CorySanin/tauntbot')})`
+                                }
+                            ]
+                        }
+                    }
+                );
+            }
+            else if (command === 'stop') {
+                let playing = nowPlaying[interaction.guildId];
+                if (playing) {
+                    if (playing.player === interaction.member.user.id
+                        || interaction.member.permissions.any([
+                            Discord.Permissions.FLAGS.ADMINISTRATOR,
+                            Discord.Permissions.FLAGS.MANAGE_CHANNELS,
+                            Discord.Permissions.FLAGS.KICK_MEMBERS,
+                            Discord.Permissions.FLAGS.MOVE_MEMBERS]
+                        )) {
+                        playing.playerobj.pause();
+                        await interaction.reply(`${interaction.member.displayName} stopped the taunt`);
+                    }
+                    else {
+                        await interaction.reply({ content: 'You did not queue up this taunt.', ephemeral: true });
+                    }
+                }
+                else {
+                    await interaction.reply({ content: 'Nothing to stop', ephemeral: true });
+                }
+            }
+        }
+    }
+});
+
+client.on('messageCreate', async message => {
     if (message.guild && !message.author.bot) {
         let command = getCommand(message.content);
         let arg, type, file;
@@ -265,19 +424,17 @@ client.on('messageCreate', message => {
                 if (type) {
                     file = (typeof arg === 'string' && getIdFromMention(arg.split(' ')[0])) || message.author.id;
                     let filename = path.join(config.get('audioDirectory'), `${file}_${type}.ogg`);
-                    fs.exists(filename, (exists) => {
-                        if (exists) {
-                            queueAudio({
-                                file: filename,
-                                player: message.author.id,
-                                type,
-                                channel: message.member.voice.channel
-                            });
-                        }
-                        else {
-                            sendMessage(`You need to upload a ${type} taunt. Go to <${config.get('website')}> to add one.`, message);
-                        }
-                    })
+                    if (await tauntExists(filename)) {
+                        queueAudio({
+                            file: filename,
+                            player: message.author.id,
+                            type,
+                            channel: message.member.voice.channel
+                        });
+                    }
+                    else {
+                        sendMessage(`You need to upload a ${type} taunt. Go to <${config.get('website')}> to add one.`, message);
+                    }
                 }
             }
             if (!type) {
@@ -373,7 +530,7 @@ client.on('messageCreate', message => {
     }
 });
 
-client.on('voiceStateUpdate', (oldMember, newMember) => {
+client.on('voiceStateUpdate', async (oldMember, newMember) => {
     if (oldMember.channel === null
         && newMember.channel) {
         const type = 'intro';
@@ -383,11 +540,9 @@ client.on('voiceStateUpdate', (oldMember, newMember) => {
             type,
             channel: newMember.channel
         };
-        fs.exists(options.file, (exists) => {
-            if (exists) {
-                queueAudio(options);
-            }
-        });
+        if (await tauntExists(options.file)) {
+            queueAudio(options);
+        }
     }
 })
 

@@ -1,6 +1,6 @@
 {
   "name": "tauntbot",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Celebrate your victories!",
   "main": "index.js",
   "repository": {
@@ -18,9 +18,12 @@
   },
   "license": "GPL-3.0",
   "dependencies": {
+    "@discordjs/builders": "0.6.0",
     "@discordjs/opus": "0.6.0",
+    "@discordjs/rest": "0.1.0-canary.0",
     "@discordjs/voice": "0.6.0",
     "bufferutil": "4.0.3",
+    "discord-api-types": "0.23.1",
     "discord.js": "13.1.0",
     "libsodium-wrappers": "0.7.9",
     "loglevel": "1.6.7",

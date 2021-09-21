@@ -1,5 +1,7 @@
 {
     "token": "PGEoMBl8x8uJ0SIsNTG5MDgw.Example.fMU7J9qetuBhQWhKYL7Si-clFU2",
+    "clientId": "ClientID",
+    "guildId": null,
     "prefix": "tb ",
     "color": 38536,
     "audioDirectory": "audio/",
