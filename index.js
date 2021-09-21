@@ -439,7 +439,7 @@ client.on('messageCreate', async message => {
                             channel: message.member.voice.channel
                         });
                     }
-                    else if (arg) {
+                    else if (typeof arg === 'string') {
                         sendMessage(`That user doesn't have a ${type} taunt uploaded.`, message);
                     }
                     else {

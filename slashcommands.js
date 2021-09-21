@@ -41,7 +41,7 @@ module.exports = exports = async (config) => {
         console.log('Started refreshing application (/) commands.');
 
         await rest.put(
-            (config.get('guildId')) ? Routes.applicationGuildCommands(config.get('clientId'), config.get('guildId')) : Routes.applicationGuildCommands(config.get('clientId')),
+            (config.get('guildId')) ? Routes.applicationGuildCommands(config.get('clientId'), config.get('guildId')) : Routes.applicationCommands(config.get('clientId')),
             { body: commands }
         );
 
