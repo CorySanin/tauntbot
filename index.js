@@ -543,7 +543,7 @@ client.on('messageCreate', async message => {
                         }
                     }
                 }
-                else if (arg = doesCommandMatch(command, ['debug']) && interaction.member.permissions.any([
+                else if (arg = doesCommandMatch(command, ['debug']) && message.member.permissions.any([
                     Discord.Permissions.FLAGS.ADMINISTRATOR,
                     Discord.Permissions.FLAGS.MANAGE_CHANNELS,
                     Discord.Permissions.FLAGS.KICK_MEMBERS,
