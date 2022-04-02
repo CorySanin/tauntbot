@@ -179,39 +179,44 @@ async function queueAudio(options) {
 }
 
 function play(guildid) {
-    let playerOptions = guildQueue[guildid].shift();
-    let connection, player;
-    let finish = () => {
-        if (guildQueue[guildid] && guildQueue[guildid].length) {
-            play(guildid);
-        }
-        else {
-            delete guildQueue[guildid];
-            delete nowPlaying[guildid];
-            if (connection && player) {
-                connection.destroy();
-                player.stop();
+    try {
+        let playerOptions = guildQueue[guildid].shift();
+        let connection, player;
+        let finish = () => {
+            if (guildQueue[guildid] && guildQueue[guildid].length) {
+                play(guildid);
+            }
+            else {
+                delete guildQueue[guildid];
+                delete nowPlaying[guildid];
+                if (connection && player) {
+                    connection.destroy();
+                    player.stop();
+                }
             }
         }
+        let playaudio = () => {
+            log.info(`playing ${playerOptions.file} on ${playerOptions.channel.guild.name}`);
+            incrementTauntCount(playerOptions.type)
+            player.play(Voice.createAudioResource(fs.createReadStream(playerOptions.file), { inputType: Voice.StreamType.OggOpus }));
+        };
+        player = playerOptions.playerobj = (guildid in nowPlaying && nowPlaying[guildid].playerobj) || createAudioPlayer(finish);
+        connection = playerOptions.connection = Voice.joinVoiceChannel({
+            channelId: playerOptions.channel.id,
+            guildId: playerOptions.channel.guild.id,
+            adapterCreator: playerOptions.channel.guild.voiceAdapterCreator
+        });
+        nowPlaying[guildid] = playerOptions;
+        connection.subscribe(player);
+        if (connection.state.status === Voice.VoiceConnectionStatus.Ready) {
+            playaudio();
+        }
+        else {
+            connection.on(Voice.VoiceConnectionStatus.Ready, playaudio);
+        }
     }
-    let playaudio = () => {
-        log.info(`playing ${playerOptions.file} on ${playerOptions.channel.guild.name}`);
-        incrementTauntCount(playerOptions.type)
-        player.play(Voice.createAudioResource(fs.createReadStream(playerOptions.file), { inputType: Voice.StreamType.OggOpus }));
-    };
-    player = playerOptions.playerobj = (guildid in nowPlaying && nowPlaying[guildid].playerobj) || createAudioPlayer(finish);
-    connection = playerOptions.connection = Voice.joinVoiceChannel({
-        channelId: playerOptions.channel.id,
-        guildId: playerOptions.channel.guild.id,
-        adapterCreator: playerOptions.channel.guild.voiceAdapterCreator
-    });
-    nowPlaying[guildid] = playerOptions;
-    connection.subscribe(player);
-    if (connection.state.status === Voice.VoiceConnectionStatus.Ready) {
-        playaudio();
-    }
-    else {
-        connection.on(Voice.VoiceConnectionStatus.Ready, playaudio);
+    catch (ex) {
+        console.error(ex);
     }
 }
 
@@ -537,6 +542,15 @@ client.on('messageCreate', async message => {
                             playing.playerobj.pause();
                         }
                     }
+                }
+                else if (arg = doesCommandMatch(command, ['debug']) && interaction.member.permissions.any([
+                    Discord.Permissions.FLAGS.ADMINISTRATOR,
+                    Discord.Permissions.FLAGS.MANAGE_CHANNELS,
+                    Discord.Permissions.FLAGS.KICK_MEMBERS,
+                    Discord.Permissions.FLAGS.MOVE_MEMBERS]
+                )) {
+                    console.log(guildQueue);
+                    console.log(nowPlaying);
                 }
             }
         }
