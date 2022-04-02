@@ -206,6 +206,11 @@ function play(guildid) {
             guildId: playerOptions.channel.guild.id,
             adapterCreator: playerOptions.channel.guild.voiceAdapterCreator
         });
+        connection.on('error', (err) => {
+            console.error('VoiceConnection Error:');
+            console.error(err);
+            finish();
+        })
         nowPlaying[guildid] = playerOptions;
         connection.subscribe(player);
         if (connection.state.status === Voice.VoiceConnectionStatus.Ready) {
@@ -216,6 +221,7 @@ function play(guildid) {
         }
     }
     catch (ex) {
+        console.error('General exception in play():');
         console.error(ex);
     }
 }
