@@ -580,3 +580,5 @@ client.on('voiceStateUpdate', async (oldMember, newMember) => {
 })
 
 client.login(config.get('token'));
+
+process.on('SIGTERM', client.destroy);
