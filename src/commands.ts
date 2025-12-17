@@ -6,21 +6,21 @@ export const Commands = [
         .setDescription('Plays your victory track')
         .addUserOption(option =>
             option.setName('member')
-                .setDescription('Whose track to play. Mention them.')
+                .setDescription('Whose track to play')
         ),
     new SlashCommandBuilder()
         .setName('mvp')
         .setDescription('Plays your mvp track')
         .addUserOption(option =>
             option.setName('member')
-                .setDescription('Whose track to play. Mention them.')
+                .setDescription('Whose track to play')
         ),
     new SlashCommandBuilder()
         .setName('lose')
         .setDescription('Plays your lose track')
         .addUserOption(option =>
             option.setName('member')
-                .setDescription('Whose track to play. Mention them.')
+                .setDescription('Whose track to play')
         ),
     new SlashCommandBuilder()
         .setName('stop')

@@ -1,3 +1,4 @@
+import type { ActivityOptions } from 'discord.js';
 
 export interface Config {
     clientId: string;
@@ -5,8 +6,10 @@ export interface Config {
     guildId: null | string;
     audioDirectory: string;
     volume: number;
-    activity: null; //TODO: define in terms of discord.js
+    activity: ActivityOptions;
     guild: string;
     website: string;
     discordBotsToken: string;
 }
+
+export type TauntType = 'victory' | 'mvp' | 'lose' | 'intro';

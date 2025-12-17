@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { getConfig } from './config.js';
 import { TauntBot } from './tauntbot.js';
 
