@@ -1,8 +1,16 @@
 {
   "name": "tauntbot",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "Celebrate your victories!",
-  "main": "index.js",
+  "type": "module",
+  "main": "distribution/index.js",
+  "bin": {
+    "tauntbot": "./distribution/index.js",
+    "tauntbot1t": "./distribution/main.js"
+  },
+  "files": [
+    "distribution"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/CorySanin/tauntbot.git"
@@ -18,21 +26,17 @@
   },
   "license": "GPL-3.0",
   "dependencies": {
-    "@discordjs/builders": "0.12.0",
-    "@discordjs/opus": "0.8.0",
-    "@discordjs/rest": "0.3.0",
-    "@discordjs/voice": "0.8.0",
-    "bufferutil": "4.0.6",
-    "discord-api-types": "0.30.0",
-    "discord.js": "13.6.0",
-    "libsodium-wrappers": "0.7.10",
-    "loglevel": "1.8.0",
-    "sodium": "3.0.2",
-    "topgg-autoposter": "2.0.1",
-    "utf-8-validate": "5.0.9"
+    "@discordjs/opus": "^0.10.0",
+    "@discordjs/voice": "^0.19.0",
+    "discord.js": "^14.25.1",
+    "json5": "2.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3"
   },
   "bugs": {
     "url": "https://github.com/CorySanin/tauntbot/issues"
   },
-  "homepage": "https://github.com/CorySanin/tauntbot#readme"
+  "homepage": "https://taunt.bot"
 }

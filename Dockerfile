@@ -1,4 +1,6 @@
-FROM node:lts-alpine3.15 as npm-install
+FROM node:lts-alpine AS base
+
+FROM base AS npm-install
 
 WORKDIR /usr/src/app
 
@@ -8,7 +10,7 @@ COPY package*.json ./
 
 RUN npm ci --only=production
 
-FROM node:lts-alpine3.15
+FROM base
 
 WORKDIR /usr/src/app
 
