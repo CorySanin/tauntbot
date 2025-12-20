@@ -2,6 +2,7 @@ import path from 'path';
 import fsp from 'fs/promises';
 import type { Config, TauntType, BotEvent, TauntEvent, GuildCountEvent } from './types.js';
 import type { Shard } from 'discord.js';
+import { Api } from '@top-gg/sdk';
 
 export type TauntStats = {
     period: number;
@@ -30,9 +31,13 @@ export class Stats {
     private year: TauntStats;
     private statDir: string;
     private ready = false;
+    private topgg: Api = null;
 
     constructor(conf: Config) {
         this.statDir = conf.statsDirectory;
+        if (conf.topggtoken) {
+            this.topgg = new Api(conf.topggtoken)
+        }
         this.readStats();
     }
 
@@ -64,7 +69,14 @@ export class Stats {
                 this.incrementTauntCount(m as TauntEvent);
                 break;
             case 'guildCount':
-                this.writeServers((m as GuildCountEvent).value)
+                const stats = (m as GuildCountEvent).value;
+                if (this.topgg) {
+                    this.topgg.postStats({
+                        serverCount: stats.serverCount,
+                        shardCount: stats.shardCount
+                    }).catch(ex => console.error(ex));
+                }
+                this.writeServers(stats.serverCount)
                 break;
             default:
                 break;

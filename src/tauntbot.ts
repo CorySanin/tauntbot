@@ -360,7 +360,7 @@ export class TauntBot {
             this.playAudio(key);
         }
         else {
-            details.connection.on(Voice.VoiceConnectionStatus.Ready, () => this.playAudio(key));
+            details.connection.once(Voice.VoiceConnectionStatus.Ready, () => this.playAudio(key));
         }
     }
 
@@ -418,10 +418,14 @@ export class TauntBot {
     }
 
     async updateServerCount() {
-        const count = (await this.client.shard.fetchClientValues('guilds.cache.size') as number[]).reduce((acc, guildCount) => acc + guildCount, 0);
+        const counts = await this.client.shard.fetchClientValues('guilds.cache.size') as number[];
+        const count = counts.reduce((acc, guildCount) => acc + guildCount, 0);
         const message: GuildCountEvent = {
             type: 'guildCount',
-            value: count
+            value: {
+                serverCount: count,
+                shardCount: counts.length
+            }
         };
         await this.client.shard.send(message);
         return count;

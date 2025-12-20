@@ -25,5 +25,8 @@ export interface TauntEvent extends BotEvent {
 
 export interface GuildCountEvent extends BotEvent {
     type: 'guildCount',
-    value: number
+    value: {
+        serverCount: number;
+        shardCount: number;
+    }
 }
