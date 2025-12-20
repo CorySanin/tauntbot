@@ -26,7 +26,7 @@ RUN npm ci --only=production
 
 COPY --from=build /usr/src/app/distribution /usr/src/app/distribution
 
-FROM base
+FROM base AS deploy
 
 WORKDIR /usr/src/app
 
