@@ -1,6 +1,6 @@
 {
   "name": "tauntbot",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Celebrate your victories!",
   "type": "module",
   "main": "distribution/src/index.js",

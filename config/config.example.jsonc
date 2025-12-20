@@ -1,14 +1,14 @@
 {
-    "token": "PGEoMBl8x8uJ0SIsNTG5MDgw.Example.fMU7J9qetuBhQWhKYL7Si-clFU2",
-    "color": 38536,
+    "token": "PGEoMBl8x8uJ0SIsNTG5MDgw.Example.fMU7J9qetuBhQWhKYL7Si-clFU2", // bot token from discord.dev
+    "color": 38536, // color to use for embeds. Convert hex to decimal, or express as hex with 0x009688
     "audioDirectory": "audio",
     "statsDirectory": "stats",
-    "activity": { // see https://discord.js.org/docs/packages/discord.js/main/ActivityOptions:Interface
+    "activity": {  // see https://discord.js.org/docs/packages/discord.js/main/ActivityOptions:Interface
         "type": 0, // see https://discord.js.org/docs/packages/discord.js/main/ActivityType:Enum
         "name": "taunt.bot",
         "state": "/help for more info"
     },
-    "guild": "https://discord.gg/D3tTjQ4",
-    "website": "https://taunt.bot",
-    "topggtoken": ""
+    "guild": "https://discord.gg/D3tTjQ4", // optional link to a Discord guild that appears in /invite
+    "website": "https://taunt.bot",        // website to link to in /invite and /help responses
+    "topggtoken": ""                       // token for pushing stats to top.gg
 }
