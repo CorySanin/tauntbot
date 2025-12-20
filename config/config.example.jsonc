@@ -1,17 +1,14 @@
 {
     "token": "PGEoMBl8x8uJ0SIsNTG5MDgw.Example.fMU7J9qetuBhQWhKYL7Si-clFU2",
-    "clientId": "ClientID",
-    "guildId": null,
-    "prefix": "tb ",
     "color": 38536,
-    "audioDirectory": "audio/",
-    "statsDirectory": "stats/",
-    "volume": 0.35,
+    "audioDirectory": "audio",
+    "statsDirectory": "stats",
     "activity": { // see https://discord.js.org/docs/packages/discord.js/main/ActivityOptions:Interface
         "type": 0, // see https://discord.js.org/docs/packages/discord.js/main/ActivityType:Enum
-        "name": "taunt.bot"
+        "name": "taunt.bot",
+        "state": "/help for more info"
     },
     "guild": "https://discord.gg/D3tTjQ4",
     "website": "https://taunt.bot",
-    "discordBotsToken": ""
+    "topggtoken": ""
 }

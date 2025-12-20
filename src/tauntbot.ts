@@ -6,7 +6,7 @@
    |_|\__,_|\__,_|_| |_|\__(_)____/ \___/ \__|
 
 */
-import { REST, Client, GatewayIntentBits, Events, Routes, GuildMember, userMention, hyperlink, PermissionFlagsBits, type ActivityOptions, type VoiceBasedChannel, type ChatInputCommandInteraction, MessageFlags } from 'discord.js';
+import { REST, Client, GatewayIntentBits, Events, Routes, GuildMember, userMention, hyperlink, PermissionFlagsBits, type ActivityOptions, type VoiceBasedChannel, type ChatInputCommandInteraction, type APIEmbedField, MessageFlags } from 'discord.js';
 import * as Voice from '@discordjs/voice';
 import path from 'path';
 import fsp from 'fs/promises';
@@ -145,6 +145,24 @@ export class TauntBot {
                     });
                     break;
                 case Commands.INVITE:
+                    const fields: APIEmbedField[] = [
+                        {
+                            name: 'Invite',
+                            value: `${hyperlink(`Invite ${client.user.username}`, `https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=3165184`)} to your server`
+                        }
+                    ];
+                    if (conf.website) {
+                        fields.push({
+                            name: 'Website',
+                            value: `Visit ${conf.website} to upload taunts`
+                        });
+                    }
+                    if (conf.guild) {
+                        fields.push({
+                            name: 'Discord',
+                            value: `Discuss ${hyperlink(`${client.user.username} on Discord`, conf.guild)}`
+                        });
+                    }
                     await interaction.reply(
                         {
                             flags: MessageFlags.Ephemeral,
@@ -158,20 +176,7 @@ export class TauntBot {
                                         url: client.user.avatarURL()
                                     },
                                     color: conf.color,
-                                    fields: [
-                                        {
-                                            name: 'Invite',
-                                            value: `${hyperlink(`Invite ${client.user.username}`, `https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=3165184`)} to your server`
-                                        },
-                                        {
-                                            name: 'Website',
-                                            value: `Visit ${conf.website} to upload taunts`
-                                        },
-                                        {
-                                            name: 'Discord',
-                                            value: `Discuss ${hyperlink(`${client.user.username} on Discord`, conf.guild)}`
-                                        }
-                                    ]
+                                    fields
                                 }
                             ]
                         }

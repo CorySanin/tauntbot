@@ -2,15 +2,13 @@ import type { ActivityOptions } from 'discord.js';
 
 export interface Config {
     token: string;
-    color: number;
-    guildId: null | string;
+    color?: number;
     audioDirectory: string;
     statsDirectory: string;
-    volume: number;
-    activity: ActivityOptions;
-    guild: string;
-    website: string;
-    discordBotsToken: string;
+    activity?: ActivityOptions;
+    guild?: string;
+    website?: string;
+    topggtoken?: string;
 }
 
 export type TauntType = 'victory' | 'mvp' | 'lose' | 'intro';
