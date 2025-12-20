@@ -432,7 +432,7 @@ export class TauntBot {
         return rest.put(Routes.applicationCommands(this.client.user.id), { body: SlashCommands.map(c => c.toJSON()) });
     }
 
-    setGame() {
+    setGame = () => {
         if (!this.activity?.name) {
             console.error(`activity missing from config, can't set activity.`);
             return null;
