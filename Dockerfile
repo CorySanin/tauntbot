@@ -1,4 +1,6 @@
-FROM node:lts-alpine3.15 as npm-install
+FROM node:lts-alpine AS base
+
+FROM base AS build-env
 
 WORKDIR /usr/src/app
 
@@ -6,18 +8,32 @@ RUN apk add --no-cache libtool autoconf automake python3 make g++
 
 COPY package*.json ./
 
-RUN npm ci --only=production
-
-FROM node:lts-alpine3.15
+FROM build-env AS build
 
 WORKDIR /usr/src/app
 
-COPY --from=npm-install /usr/src/app /usr/src/app
+RUN npm ci
 
 COPY . .
 
-RUN apk add --no-cache ffmpeg && addgroup -S appgroup && adduser -S appuser -G appgroup && chown appuser . && mkdir stats
+RUN npm run build
 
-USER appuser
+FROM build-env AS composit
 
-CMD [ "node", "index.js"]
+WORKDIR /usr/src/app
+
+RUN npm ci --only=production
+
+COPY --from=build /usr/src/app/distribution /usr/src/app/distribution
+
+FROM base
+
+WORKDIR /usr/src/app
+
+COPY --from=composit /usr/src/app /usr/src/app
+
+RUN apk add --no-cache ffmpeg && chown node . && mkdir stats
+
+USER node
+
+CMD [ "node", "distribution/src/index.js"]
