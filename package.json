@@ -36,6 +36,11 @@
     "@types/node": "24.10.1",
     "typescript": "5.9.3"
   },
+  "scripts": {
+    "build": "npx tsc",
+    "watch": "npx tsc -w",
+    "start": "node ./distribution/src/index.js"
+  },
   "bugs": {
     "url": "https://github.com/CorySanin/tauntbot/issues"
   },
