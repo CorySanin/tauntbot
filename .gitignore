@@ -104,6 +104,7 @@ dist
 .tern-port
 
 audio/
-config/config.json
+config/*
+!config/config.example.jsonc
 stats/
 distribution/

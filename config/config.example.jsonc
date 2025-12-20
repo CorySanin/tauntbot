@@ -7,9 +7,9 @@
     "audioDirectory": "audio/",
     "statsDirectory": "stats/",
     "volume": 0.35,
-    "activity": {
-        "type": 0,
-        "value": "taunt.bot"
+    "activity": { // see https://discord.js.org/docs/packages/discord.js/main/ActivityOptions:Interface
+        "type": 0, // see https://discord.js.org/docs/packages/discord.js/main/ActivityType:Enum
+        "name": "taunt.bot"
     },
     "guild": "https://discord.gg/D3tTjQ4",
     "website": "https://taunt.bot",
