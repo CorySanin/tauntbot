@@ -12,7 +12,7 @@ import path from 'path';
 import fsp from 'fs/promises';
 import fs from 'fs';
 import { SlashCommands, Commands } from './commands.js';
-import type { Config, TauntType } from './types.js';
+import type { Config, TauntType, TauntEvent, GuildCountEvent } from './types.js';
 
 interface QueueItem {
     file: string;
@@ -90,6 +90,8 @@ export class TauntBot {
                 }
             }
         });
+
+        client.on(Events.ShardReady, this.setGame);
 
         client.on(Events.InteractionCreate, async (interaction) => {
             if (!interaction.isChatInputCommand() ||
@@ -238,7 +240,6 @@ export class TauntBot {
                 clearTimeout(timeout);
                 console.log(`Logged in as "${client.user.username}"`);
                 await this.registerCommands(conf.token);
-                this.setGame();
                 resolve();
             });
         }
@@ -394,7 +395,11 @@ export class TauntBot {
     }
 
     incrementTauntCount(type: TauntType) {
-        // TODO: implement
+        const message: TauntEvent = {
+            type: 'taunt',
+            value: type
+        }
+        return this.client.shard.send(message);
     }
 
     shiftQueue(key: string) {
@@ -403,12 +408,17 @@ export class TauntBot {
     }
 
     close() {
+        console.log('terminating bot...');
         this.client.destroy();
     }
 
     async updateServerCount() {
         const count = (await this.client.shard.fetchClientValues('guilds.cache.size') as number[]).reduce((acc, guildCount) => acc + guildCount, 0);
-        // TODO: output, call API, etc
+        const message: GuildCountEvent = {
+            type: 'guildCount',
+            value: count
+        };
+        await this.client.shard.send(message);
         return count;
     }
 

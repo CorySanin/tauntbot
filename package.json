@@ -37,6 +37,7 @@
     "typescript": "5.9.3"
   },
   "scripts": {
+    "clean": "rm -rf ./distribution",
     "build": "npx tsc",
     "watch": "npx tsc -w",
     "start": "node ./distribution/src/index.js"

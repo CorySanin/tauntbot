@@ -5,6 +5,7 @@ export interface Config {
     color: number;
     guildId: null | string;
     audioDirectory: string;
+    statsDirectory: string;
     volume: number;
     activity: ActivityOptions;
     guild: string;
@@ -13,3 +14,18 @@ export interface Config {
 }
 
 export type TauntType = 'victory' | 'mvp' | 'lose' | 'intro';
+
+export interface BotEvent {
+    type: string;
+    value: any;
+}
+
+export interface TauntEvent extends BotEvent {
+    type: 'taunt',
+    value: TauntType
+}
+
+export interface GuildCountEvent extends BotEvent {
+    type: 'guildCount',
+    value: number
+}

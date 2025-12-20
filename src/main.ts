@@ -8,3 +8,13 @@ const bot = new TauntBot(await getConfig());
 bot.start();
 
 process.on('SIGTERM', bot.close);
+process.on('message', m => {
+    if (m === 'SIGTERM') {
+        bot.close();
+        return;
+    }
+    if (m === 'serverCount') {
+        bot.updateServerCount();
+    }
+});
+
