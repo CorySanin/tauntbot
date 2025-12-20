@@ -6,7 +6,7 @@
    |_|\__,_|\__,_|_| |_|\__(_)____/ \___/ \__|
 
 */
-import { REST, Client, GatewayIntentBits, Events, Routes, GuildMember, userMention, PermissionFlagsBits, type ActivityOptions, type VoiceBasedChannel, type ChatInputCommandInteraction, MessageFlags } from 'discord.js';
+import { REST, Client, GatewayIntentBits, Events, Routes, GuildMember, userMention, hyperlink, PermissionFlagsBits, type ActivityOptions, type VoiceBasedChannel, type ChatInputCommandInteraction, MessageFlags } from 'discord.js';
 import * as Voice from '@discordjs/voice';
 import path from 'path';
 import fsp from 'fs/promises';
@@ -40,6 +40,8 @@ interface PlayerManager {
 }
 
 type FinishCallback = (oldState?: Voice.AudioPlayerState | Voice.AudioPlayerError, newState?: Voice.AudioPlayerIdleState) => void;
+
+const ZWSPACE = String.fromCharCode(parseInt('200B', 16));
 
 export class TauntBot {
     public start: () => Promise<void>;
@@ -141,10 +143,85 @@ export class TauntBot {
                     });
                     break;
                 case Commands.INVITE:
+                    await interaction.reply(
+                        {
+                            flags: MessageFlags.Ephemeral,
+                            embeds: [
+                                {
+                                    author: {
+                                        name: client.user.username,
+                                        url: conf.website
+                                    },
+                                    thumbnail: {
+                                        url: client.user.avatarURL()
+                                    },
+                                    color: conf.color,
+                                    fields: [
+                                        {
+                                            name: 'Invite',
+                                            value: `${hyperlink(`Invite ${client.user.username}`, `https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=3165184`)} to your server`
+                                        },
+                                        {
+                                            name: 'Website',
+                                            value: `Visit ${conf.website} to upload taunts`
+                                        },
+                                        {
+                                            name: 'Discord',
+                                            value: `Discuss ${hyperlink(`${client.user.username} on Discord`, conf.guild)}`
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    );
+                    break;
                 case Commands.HELP:
                     await interaction.reply({
-                        content: 'TODO: implement'
+                        flags: MessageFlags.Ephemeral,
+                        embeds: [
+                            {
+                                author: {
+                                    name: client.user.username,
+                                    url: conf.website,
+                                    icon_url: client.user.avatarURL()
+                                },
+                                description: (`Every time you win, listen to your anthem by joining a voice channel and entering \`/win\`` +
+                                    ` in the chat. For smaller achievements, use \`/mvp\` to hear a shorter audio track of your choosing. ` +
+                                    `To get started, log in with your Discord account at ${conf.website}${ZWSPACE}. ` +
+                                    "Upload your taunts and you'll be ready to go! " +
+                                    "\n*You must be connected to a voice channel for it to work.* " +
+                                    "\nCreated by Cory Sanin (AKA WORM)"),
+                                color: conf.color,
+                                fields: [
+                                    {
+                                        name: `/win`,
+                                        value: `Plays your victory track. Optionally, you can pass a Discord user to play their win track.`
+                                    },
+                                    {
+                                        name: `/mvp`,
+                                        value: `Plays your mvp track. Optionally, you can pass a Discord user to play their win track.`
+                                    },
+                                    {
+                                        name: `/lose`,
+                                        value: `Plays your lose track. Optionally, you can pass a Discord user to play their win track.`
+                                    },
+                                    {
+                                        name: `/stop`,
+                                        value: 'Cancels the current track if you started it (or if you\'re an admin)'
+                                    },
+                                    {
+                                        name: `/invite`,
+                                        value: `Generates a link to invite ${client.user.username} to a server near you!`
+                                    },
+                                    {
+                                        name: `/help`,
+                                        value: 'Displays this help message'
+                                    }
+                                ]
+                            }
+                        ]
                     });
+                    break;
                 default:
                     console.error(`command not recognized: ${interaction.commandName}`);
                     break;

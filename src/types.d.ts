@@ -2,6 +2,7 @@ import type { ActivityOptions } from 'discord.js';
 
 export interface Config {
     token: string;
+    color: number;
     guildId: null | string;
     audioDirectory: string;
     volume: number;
