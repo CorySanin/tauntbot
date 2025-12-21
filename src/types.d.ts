@@ -9,6 +9,8 @@ export interface Config {
     guild?: string;
     website?: string;
     topggtoken?: string;
+    webport?: number
+    metricprefix: string
 }
 
 export type TauntType = 'victory' | 'mvp' | 'lose' | 'intro';

@@ -24,5 +24,6 @@ const shards = await manager.spawn();
 shards.first().send('serverCount');
 
 process.on('SIGTERM', async () => {
+    stats.close();
     await manager.broadcast('SIGTERM');
 });

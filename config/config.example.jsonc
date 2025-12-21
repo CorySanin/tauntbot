@@ -1,14 +1,16 @@
 {
     "token": "PGEoMBl8x8uJ0SIsNTG5MDgw.Example.fMU7J9qetuBhQWhKYL7Si-clFU2", // bot token from discord.dev
-    "color": 38536, // color to use for embeds. Convert hex to decimal, or express as hex with 0x009688
     "audioDirectory": "audio",
     "statsDirectory": "stats",
-    "activity": {  // see https://discord.js.org/docs/packages/discord.js/main/ActivityOptions:Interface
-        "type": 0, // see https://discord.js.org/docs/packages/discord.js/main/ActivityType:Enum
+    "color": 38536, // color to use for embeds. Convert hex to decimal, or express as hex with 0x009688
+    "activity": {   // see https://discord.js.org/docs/packages/discord.js/main/ActivityOptions:Interface
+        "type": 0,  // see https://discord.js.org/docs/packages/discord.js/main/ActivityType:Enum
         "name": "taunt.bot",
         "state": "/help for more info"
     },
     "guild": "https://discord.gg/D3tTjQ4", // optional link to a Discord guild that appears in /invite
     "website": "https://taunt.bot",        // website to link to in /invite and /help responses
-    "topggtoken": ""                       // token for pushing stats to top.gg
+    "topggtoken": "aabbccddeeff",          // token for pushing stats to top.gg
+    "webport": 8080,                       // if set, tauntbot will publish prometheus metrics at /metrics on this port
+    "metricprefix": "tauntbot_"            // if webport is set, this is the prefix for all metric names
 }

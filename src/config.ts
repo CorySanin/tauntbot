@@ -13,7 +13,9 @@ export async function getConfig() {
         activity: fileConfig?.activity,
         guild: process.env['GUILD'] || fileConfig?.guild,
         website: process.env['WEBSITE'] || fileConfig?.website,
-        topggtoken: process.env['TOPGGTOKEN'] || fileConfig?.topggtoken
+        topggtoken: process.env['TOPGGTOKEN'] || fileConfig?.topggtoken,
+        webport: parseInt(process.env['WEBPORT']) || fileConfig?.webport,
+        metricprefix: process.env['METRICPREFIX'] || fileConfig?.metricprefix || 'tauntbot_'
     }
     return config;
 }

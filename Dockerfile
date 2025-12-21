@@ -32,7 +32,7 @@ WORKDIR /usr/src/app
 
 COPY --from=composit /usr/src/app /usr/src/app
 
-RUN apk add --no-cache ffmpeg && chown node . && mkdir stats
+RUN apk add --no-cache ffmpeg curl && chown node . && mkdir stats
 
 USER node
 

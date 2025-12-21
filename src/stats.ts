@@ -1,8 +1,10 @@
 import path from 'path';
 import fsp from 'fs/promises';
+import { Api } from '@top-gg/sdk';
+import prom from 'prom-client';
+import { Web } from './web.js';
 import type { Config, TauntType, BotEvent, TauntEvent, GuildCountEvent } from './types.js';
 import type { Shard } from 'discord.js';
-import { Api } from '@top-gg/sdk';
 
 export type TauntStats = {
     period: number;
@@ -29,9 +31,11 @@ function initializeStat(period: number): TauntStats {
 export class Stats {
     private today: TauntStats;
     private year: TauntStats;
+    private serverCount: number = 0;
     private statDir: string;
     private ready = false;
     private topgg: Api = null;
+    private web: Web = null;
 
     constructor(conf: Config) {
         this.statDir = conf.statsDirectory;
@@ -39,6 +43,44 @@ export class Stats {
             this.topgg = new Api(conf.topggtoken)
         }
         this.readStats();
+        if (!conf.webport) {
+            return;
+        }
+        this.web = new Web(conf, prom.register);
+        let that = this;
+        new prom.Gauge({
+            name: `${conf.metricprefix}yearly_taunts`,
+            help: `Number of taunts played this year.`,
+            labelNames: ['type'],
+            collect() {
+                ['victory', 'mvp', 'lose', 'intro'].forEach(t => {
+                    this.set({
+                        type: t,
+                    }, that.year[t] || 0)
+                });
+            }
+        });
+
+        new prom.Gauge({
+            name: `${conf.metricprefix}daily_taunts`,
+            help: `Number of taunts played today.`,
+            labelNames: ['type'],
+            collect() {
+                ['victory', 'mvp', 'lose', 'intro'].forEach(t => {
+                    this.set({
+                        type: t,
+                    }, that.today[t] || 0)
+                });
+            }
+        });
+
+        new prom.Gauge({
+            name: `${conf.metricprefix}connected_guilds`,
+            help: `Number of guilds the bot is in.`,
+            collect() {
+                this.set({}, that.serverCount);
+            }
+        });
     }
 
     async readStats() {
@@ -76,7 +118,7 @@ export class Stats {
                         shardCount: stats.shardCount
                     }).catch(ex => console.error(ex));
                 }
-                this.writeServers(stats.serverCount)
+                this.writeServers(this.serverCount = stats.serverCount)
                 break;
             default:
                 break;
@@ -115,5 +157,9 @@ export class Stats {
 
     getPath(file: string) {
         return path.join(this.statDir, file);
+    }
+
+    close() {
+        this.web?.close();
     }
 }
