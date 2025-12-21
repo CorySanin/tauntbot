@@ -1,4 +1,6 @@
+import path from 'path';
 import express from 'express';
+import log4js from 'log4js';
 import type http from "http";
 import type { Config } from './types.js';
 import type { Registry } from 'prom-client';
@@ -6,8 +8,11 @@ import type { Registry } from 'prom-client';
 
 export class Web {
     private _webserver: http.Server;
+    private logger: log4js.Logger;
 
     constructor(conf: Config, register: Registry) {
+        this.logger = log4js.getLogger(path.basename(import.meta.filename));
+        this.logger.level = conf.loglevel;
         const app = express();
         if (!conf.webport) {
             throw new Error('can\'t start a web server without a port.');
@@ -25,12 +30,12 @@ export class Web {
                 res.end(await register.metrics());
             }
             catch (ex) {
-                console.error(ex);
+                this.logger.error('error sending metrics: %s', ex);
                 res.status(500).send('something went wrong.');
             }
         });
 
-        this._webserver = app.listen(port, () => console.log(`Web server running on ${port}`));
+        this._webserver = app.listen(port, () => this.logger.info('Web server running on %d', port));
     }
 
     close() {

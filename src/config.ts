@@ -6,6 +6,7 @@ import type { Config } from './types.js';
 export async function getConfig() {
     const fileConfig = await tryReadConfig();
     const config: Config = {
+        loglevel: process.env['LOGLEVEL'] || fileConfig?.loglevel || 'info',
         token: process.env['TOKEN'] || fileConfig?.token || throwError('token is required'),
         color: fileConfig?.color,
         audioDirectory: process.env['AUDIODIRECTORY'] || fileConfig?.audioDirectory || 'audio',

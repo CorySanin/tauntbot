@@ -1,5 +1,6 @@
 import path from 'path';
 import fsp from 'fs/promises';
+import log4js from 'log4js';
 import { Api } from '@top-gg/sdk';
 import prom from 'prom-client';
 import { Web } from './web.js';
@@ -36,8 +37,11 @@ export class Stats {
     private ready = false;
     private topgg: Api = null;
     private web: Web = null;
+    private logger: log4js.Logger;
 
     constructor(conf: Config) {
+        this.logger = log4js.getLogger(path.basename(import.meta.filename));
+        this.logger.level = conf.loglevel;
         this.statDir = conf.statsDirectory;
         if (conf.topggtoken) {
             this.topgg = new Api(conf.topggtoken)
@@ -91,8 +95,7 @@ export class Stats {
             this.year = stats.year || INITIALSTAT;
         }
         catch (ex) {
-            console.error('failed to load stats file');
-            console.error(ex);
+            this.logger.error('failed to load stats file: %s', ex);
             this.today = this.year = INITIALSTAT;
         }
         this.ready = true;
@@ -116,7 +119,7 @@ export class Stats {
                     this.topgg.postStats({
                         serverCount: stats.serverCount,
                         shardCount: stats.shardCount
-                    }).catch(ex => console.error(ex));
+                    }).catch(ex => this.logger.error('failed to post top.gg stats: %s', ex));
                 }
                 this.writeServers(this.serverCount = stats.serverCount)
                 break;

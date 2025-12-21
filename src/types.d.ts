@@ -1,6 +1,7 @@
 import type { ActivityOptions } from 'discord.js';
 
 export interface Config {
+    loglevel: string;
     token: string;
     color?: number;
     audioDirectory: string;
@@ -21,14 +22,19 @@ export interface BotEvent {
 }
 
 export interface TauntEvent extends BotEvent {
-    type: 'taunt',
-    value: TauntType
+    type: 'taunt';
+    value: TauntType;
 }
 
 export interface GuildCountEvent extends BotEvent {
-    type: 'guildCount',
+    type: 'guildCount';
     value: {
         serverCount: number;
         shardCount: number;
     }
+}
+
+export interface ShardMessage extends BotEvent {
+    type: 'shardid';
+    value: number;
 }

@@ -11,6 +11,7 @@ import * as Voice from '@discordjs/voice';
 import path from 'path';
 import fsp from 'fs/promises';
 import fs from 'fs';
+import log4js from 'log4js';
 import { SlashCommands, Commands } from './commands.js';
 import type { Config, TauntType, TauntEvent, GuildCountEvent } from './types.js';
 
@@ -48,24 +49,28 @@ export class TauntBot {
     private queues: QueueManager = {};
     private players: PlayerManager = {};
     private audioDir: string;
+    private logger: log4js.Logger;
+    private loglevel: string;
 
     constructor(conf: Config) {
+        this.logger = log4js.getLogger(getLoggerCategory());
+        this.logger.level = this.loglevel = conf.loglevel;
         const client = this.client = new Client({
             intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
             allowedMentions: { parse: [] },
         });
 
         client.on(Events.Error, err => {
-            console.error(`discord.js client error: ${err.name} - ${err.message}`);
+            this.logger.error('discord.js client error: %s - %s', err.name, err.message);
         });
 
         client.on(Events.GuildCreate, guild => {
-            console.info(`Joined ${guild.name}`);
+            this.logger.info('joined guild %s', guild.name);
             this.updateServerCount();
         });
 
         client.on(Events.GuildDelete, guild => {
-            console.info(`Left ${guild.name}`);
+            this.logger.info('left guild %s', guild.name);
             this.updateServerCount();
         });
 
@@ -99,7 +104,7 @@ export class TauntBot {
                 return;
             }
 
-            console.info(`got ${interaction.commandName} command`);
+            this.logger.info('got %s command in %s', interaction.commandName, interaction.guild.name);
 
             switch (interaction.commandName) {
                 case Commands.MVP:
@@ -119,15 +124,14 @@ export class TauntBot {
                     };
                     const result = await this.queueAudio(item);
                     if (typeof result === 'number') {
-                        console.info(`replying in channel ${interaction.channel.name}`);
+                        this.logger.info('replying in channel "%s"', interaction.channel.name);
                         try {
                             await interaction.reply({
                                 content: generateReply(result > 1, item)
                             });
                         }
                         catch (ex) {
-                            console.error('failed to reply to command:');
-                            console.error(ex);
+                            this.logger.error('failed to reply to command: %s', ex)
                         }
                     }
                     else {
@@ -228,7 +232,7 @@ export class TauntBot {
                     });
                     break;
                 default:
-                    console.error(`command not recognized: ${interaction.commandName}`);
+                    this.logger.error('command not recognized: "%s"', interaction.commandName);
                     break;
             }
         });
@@ -241,11 +245,16 @@ export class TauntBot {
                 const timeout = setTimeout(reject, 8000, "failed to log in.");
                 await client.login(conf.token);
                 clearTimeout(timeout);
-                console.log(`Logged in as "${client.user.username}"`);
+                this.logger.info('logged in as "%s"', client.user.username);
                 await this.registerCommands(conf.token);
                 resolve();
             });
         }
+    }
+
+    setShard(shard: number) {
+        this.logger = log4js.getLogger(getLoggerCategory(`${shard}`));
+        this.logger.level = this.loglevel;
     }
 
     stop(interaction: ChatInputCommandInteraction): string {
@@ -349,8 +358,7 @@ export class TauntBot {
         this.players[key] = details;
 
         details.connection.on('error', (err) => {
-            console.error('VoiceConnection Error:');
-            console.error(err);
+            this.logger.error('VoiceConnection Error: %s', err);
             details.callback();
         });
         details.connection.subscribe(details.playerobj);
@@ -391,7 +399,7 @@ export class TauntBot {
     playAudio(key: string) {
         const item = this.queues[key][0];
         const playerDetails = this.players[key];
-        console.info(`playing ${item.file} on ${item.channel.guild.name}`);
+        this.logger.info('playing %s on %s', item.file, item.channel.guild.name);
         this.incrementTauntCount(item.type);
         const audio = Voice.createAudioResource(this.resolveTaunt(item));
         playerDetails.playerobj.play(audio);
@@ -411,7 +419,7 @@ export class TauntBot {
     }
 
     close() {
-        console.log('terminating bot...');
+        this.logger.info('terminating bot...');
         this.client.destroy();
     }
 
@@ -436,7 +444,7 @@ export class TauntBot {
 
     setGame = () => {
         if (!this.activity?.name) {
-            console.error(`activity missing from config, can't set activity.`);
+            this.logger.error('activity missing from config, can\'t set activity.');
             return null;
         }
         return this.client.user.setActivity(this.activity.name, this.activity);
@@ -492,4 +500,8 @@ function trimProtocol(url: string) {
         return url;
     }
     return url.substring(pos + needle.length);
+}
+
+function getLoggerCategory(shard?: string) {
+    return `${path.basename(import.meta.filename)}${shard ? `[${shard}]` : ''}`;
 }
