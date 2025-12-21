@@ -41,8 +41,6 @@ interface PlayerManager {
 
 type FinishCallback = (oldState?: Voice.AudioPlayerState | Voice.AudioPlayerError, newState?: Voice.AudioPlayerIdleState) => void;
 
-const ZWSPACE = String.fromCharCode(parseInt('200B', 16));
-
 export class TauntBot {
     public start: () => Promise<void>;
     private client: Client;
@@ -194,7 +192,7 @@ export class TauntBot {
                                 },
                                 description: (`Every time you win, listen to your anthem by joining a voice channel and entering \`/win\`` +
                                     ` in the chat. For smaller achievements, use \`/mvp\` to hear a shorter audio track of your choosing. ` +
-                                    `To get started, log in with your Discord account at ${conf.website}${ZWSPACE}. ` +
+                                    `To get started, log in with your Discord account at ${hyperlink(trimProtocol(conf.website), conf.website)}. ` +
                                     "Upload your taunts and you'll be ready to go! " +
                                     "\n*You must be connected to a voice channel for it to work.* " +
                                     "\nCreated by Cory Sanin (AKA WORM)"),
@@ -206,11 +204,11 @@ export class TauntBot {
                                     },
                                     {
                                         name: `/mvp`,
-                                        value: `Plays your mvp track. Optionally, you can pass a Discord user to play their win track.`
+                                        value: `Plays your mvp track. Optionally, you can pass a Discord user to play their mvp track.`
                                     },
                                     {
                                         name: `/lose`,
-                                        value: `Plays your lose track. Optionally, you can pass a Discord user to play their win track.`
+                                        value: `Plays your lose track. Optionally, you can pass a Discord user to play their lose track.`
                                     },
                                     {
                                         name: `/stop`,
@@ -485,4 +483,13 @@ function createAudioPlayer(callback: FinishCallback) {
     player.on(Voice.AudioPlayerStatus.Paused, callback);
     player.on('error', callback);
     return player;
+}
+
+function trimProtocol(url: string) {
+    const needle = '://';
+    const pos = url.indexOf(needle);
+    if (pos < 0) {
+        return url;
+    }
+    return url.substring(pos + needle.length);
 }
