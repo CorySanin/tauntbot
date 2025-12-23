@@ -150,7 +150,7 @@ export class TauntBot {
                     const fields: APIEmbedField[] = [
                         {
                             name: 'Invite',
-                            value: `${hyperlink(`Invite ${client.user.username}`, `https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=3165184`)} to your server`
+                            value: `${hyperlink(`Invite ${client.user.username}`, `https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=3163136`)} to your server`
                         }
                     ];
                     if (conf.website) {
