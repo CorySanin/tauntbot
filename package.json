@@ -32,7 +32,7 @@
     "distribution"
   ],
   "scripts": {
-    "build": "npx tsc",
+    "build": "npx tsc && chmod +x ./distribution/src/index.js ./distribution/src/main.js",
     "clean": "rm -rf ./distribution",
     "start": "node ./distribution/src/index.js",
     "watch": "npx tsc -w"
