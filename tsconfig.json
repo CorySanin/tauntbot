@@ -1,16 +1,9 @@
 {
+  "extends": "@sindresorhus/tsconfig",
   "compilerOptions": {
     "lib": ["ESNext"],
-    "module": "NodeNext",
-    "target": "ESNext",
-
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "moduleResolution": "node16",
-    "sourceMap": true,
-    "inlineSources": true,
+    "strict": false,
     "rootDir": "./",
-    "outDir": "./distribution"
   },
   "include": ["src/**/*", "test/**/*"],
   "exclude": ["**/*.spec.ts"]

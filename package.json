@@ -2,8 +2,28 @@
   "name": "tauntbot",
   "version": "4.0.9",
   "description": "Celebrate your victories!",
+  "keywords": [
+    "discord",
+    "audio",
+    "bot"
+  ],
+  "homepage": "https://taunt.bot",
+  "bugs": {
+    "url": "https://github.com/CorySanin/tauntbot/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CorySanin/tauntbot.git"
+  },
+  "license": "GPL-3.0",
+  "author": {
+    "name": "Cory Sanin",
+    "email": "corysanin@outlook.com"
+  },
   "type": "module",
-  "main": "distribution/src/index.js",
+  "exports": {
+    ".": "./distribution/src/module.js"
+  },
   "bin": {
     "tauntbot": "./distribution/src/index.js",
     "tauntbot1t": "./distribution/src/main.js"
@@ -11,23 +31,16 @@
   "files": [
     "distribution"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/CorySanin/tauntbot.git"
+  "scripts": {
+    "build": "npx tsc",
+    "clean": "rm -rf ./distribution",
+    "start": "node ./distribution/src/index.js",
+    "watch": "npx tsc -w"
   },
-  "keywords": [
-    "discord",
-    "audio",
-    "bot"
-  ],
-  "author": {
-    "name": "Cory Sanin",
-    "email": "corysanin@outlook.com"
-  },
-  "license": "GPL-3.0",
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
     "@discordjs/voice": "^0.19.1",
+    "@sindresorhus/tsconfig": "8.1.0",
     "@top-gg/sdk": "^3.1.6",
     "bufferutil": "^4.1.0",
     "discord.js": "^14.25.1",
@@ -40,15 +53,5 @@
     "@types/express": "5.0.6",
     "@types/node": "^25.4.0",
     "typescript": "5.9.3"
-  },
-  "scripts": {
-    "clean": "rm -rf ./distribution",
-    "build": "npx tsc",
-    "watch": "npx tsc -w",
-    "start": "node ./distribution/src/index.js"
-  },
-  "bugs": {
-    "url": "https://github.com/CorySanin/tauntbot/issues"
-  },
-  "homepage": "https://taunt.bot"
+  }
 }
