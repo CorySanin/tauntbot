@@ -1,6 +1,6 @@
 {
   "name": "tauntbot",
-  "version": "4.0.9",
+  "version": "4.0.10",
   "description": "Celebrate your victories!",
   "keywords": [
     "discord",
@@ -21,8 +21,12 @@
     "email": "corysanin@outlook.com"
   },
   "type": "module",
+  "types": "./distribution/src/module.d.ts",
   "exports": {
-    ".": "./distribution/src/module.js"
+    ".": {
+      "types": "./distribution/src/module.d.ts",
+      "import": "./distribution/src/module.js"
+    }
   },
   "bin": {
     "tauntbot": "./distribution/src/index.js",
