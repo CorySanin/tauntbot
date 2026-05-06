@@ -4,35 +4,38 @@ FROM base AS build-env
 
 WORKDIR /usr/src/app
 
-RUN apk add --no-cache libtool autoconf automake python3 make g++
-
-COPY package*.json ./
+RUN apk add --no-cache libtool autoconf automake python3 make g++ pnpm
 
 FROM build-env AS build
 
 WORKDIR /usr/src/app
 
-RUN npm ci
+RUN --mount=target=/usr/src/app/package.json,source=package.json \
+    --mount=target=/usr/src/app/pnpm-lock.yaml,source=pnpm-lock.yaml \
+    pnpm install
 
-COPY . .
+COPY --link . .
 
-RUN npm run build
+RUN pnpm run build
 
 FROM build-env AS composit
 
 WORKDIR /usr/src/app
 
-RUN npm ci --only=production
+RUN --mount=target=/usr/src/app/package.json,source=package.json \
+    --mount=target=/usr/src/app/pnpm-lock.yaml,source=pnpm-lock.yaml \
+    pnpm install --prod && \
+    mkdir stats
 
-COPY --from=build /usr/src/app/distribution /usr/src/app/distribution
+COPY --link --from=build /usr/src/app/distribution /usr/src/app/distribution
 
 FROM base AS deploy
 
 WORKDIR /usr/src/app
 
-COPY --from=composit /usr/src/app /usr/src/app
+RUN apk add --no-cache ffmpeg curl
 
-RUN apk add --no-cache ffmpeg curl && chown node . && mkdir stats
+COPY --chown=node:node --from=composit /usr/src/app /usr/src/app
 
 USER node
 
