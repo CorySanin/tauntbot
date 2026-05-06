@@ -31,6 +31,9 @@ COPY --link --from=build /usr/src/app/distribution /usr/src/app/distribution
 
 FROM base AS deploy
 
+HEALTHCHECK --timeout=3s \
+  CMD curl --fail http://localhost:8080/healthcheck || exit 1
+
 WORKDIR /usr/src/app
 
 RUN apk add --no-cache ffmpeg curl

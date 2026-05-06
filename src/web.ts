@@ -18,7 +18,6 @@ export class Web {
             throw new Error('can\'t start a web server without a port.');
         }
         const port = conf.webport;
-        app.set('trust proxy', 1);
 
         app.get('/healthcheck', async (_, res) => {
             res.send('Healthy');
