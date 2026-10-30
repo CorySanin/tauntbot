@@ -1,4 +1,4 @@
-FROM node:lts-alpine AS base
+FROM node:current-alpine AS base
 
 FROM base AS build-env
 
@@ -12,7 +12,8 @@ WORKDIR /usr/src/app
 
 RUN --mount=target=/usr/src/app/package.json,source=package.json \
     --mount=target=/usr/src/app/pnpm-lock.yaml,source=pnpm-lock.yaml \
-    pnpm install
+    --mount=target=/usr/src/app/pnpm-workspace.yaml,source=pnpm-workspace.yaml \
+    pnpm ci
 
 COPY --link . .
 
@@ -24,7 +25,8 @@ WORKDIR /usr/src/app
 
 RUN --mount=target=/usr/src/app/package.json,source=package.json \
     --mount=target=/usr/src/app/pnpm-lock.yaml,source=pnpm-lock.yaml \
-    pnpm install --prod && \
+    --mount=target=/usr/src/app/pnpm-workspace.yaml,source=pnpm-workspace.yaml \
+    pnpm ci --prod && \
     mkdir stats
 
 COPY --link --from=build /usr/src/app/distribution /usr/src/app/distribution
