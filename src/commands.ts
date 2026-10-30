@@ -1,4 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
+import { TauntTypes } from './types.js';
 
 export const Commands = {
     WIN: 'win',
@@ -6,7 +7,22 @@ export const Commands = {
     LOSE: 'lose',
     STOP: 'stop',
     INVITE: 'invite',
-    HELP: 'help'
+    HELP: 'help',
+    UPLOAD: 'upload',
+    /**
+     * Not really a command on its own but useful for uploads
+     */
+    INTRO: 'intro'
+};
+
+export const OptionNames = {
+    TYPE: 'type',
+    AUDIO: 'audio',
+    MEMBER: 'member'
+}
+
+function createLiteralChoice(choice: string) {
+    return { name: choice, value: choice };
 }
 
 export const SlashCommands = [
@@ -14,21 +30,21 @@ export const SlashCommands = [
         .setName(Commands.WIN)
         .setDescription('Plays your victory track')
         .addUserOption(option =>
-            option.setName('member')
+            option.setName(OptionNames.MEMBER)
                 .setDescription('Whose track to play')
         ),
     new SlashCommandBuilder()
         .setName(Commands.MVP)
         .setDescription('Plays your mvp track')
         .addUserOption(option =>
-            option.setName('member')
+            option.setName(OptionNames.MEMBER)
                 .setDescription('Whose track to play')
         ),
     new SlashCommandBuilder()
         .setName(Commands.LOSE)
         .setDescription('Plays your lose track')
         .addUserOption(option =>
-            option.setName('member')
+            option.setName(OptionNames.MEMBER)
                 .setDescription('Whose track to play')
         ),
     new SlashCommandBuilder()
@@ -39,5 +55,24 @@ export const SlashCommands = [
         .setDescription('Generates a link to invite Taunt Bot to a new guild'),
     new SlashCommandBuilder()
         .setName(Commands.HELP)
-        .setDescription('Displays a help message in chat')
+        .setDescription('Displays a help message in chat'),
+    new SlashCommandBuilder()
+        .setName(Commands.UPLOAD)
+        .setDescription('Upload taunts for playback')
+        .addStringOption(option =>
+            option.setName(OptionNames.TYPE)
+                .setDescription('Which taunt to upload/replace')
+                .setRequired(true)
+                .setChoices(
+                    createLiteralChoice(TauntTypes.VICTORY),
+                    createLiteralChoice(TauntTypes.MVP),
+                    createLiteralChoice(TauntTypes.INTRO),
+                    createLiteralChoice(TauntTypes.LOSE)
+                )
+        )
+        .addAttachmentOption(option => 
+            option.setName(OptionNames.AUDIO)
+            .setDescription('Taunt audio clip to upload')
+            .setRequired(true)
+        )
 ];

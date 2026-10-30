@@ -6,14 +6,17 @@
    |_|\__,_|\__,_|_| |_|\__(_)____/ \___/ \__|
 
 */
-import { REST, Client, GatewayIntentBits, Events, Routes, GuildMember, userMention, hyperlink, PermissionFlagsBits, type ActivityOptions, type VoiceBasedChannel, type ChatInputCommandInteraction, type APIEmbedField, MessageFlags } from 'discord.js';
+import { REST, Client, GatewayIntentBits, Events, Routes, GuildMember, userMention, hyperlink, PermissionFlagsBits, MessageFlags } from 'discord.js';
+import type { ActivityOptions, VoiceBasedChannel, ChatInputCommandInteraction, APIEmbedField } from 'discord.js';
 import * as Voice from '@discordjs/voice';
 import path from 'path';
 import fsp from 'fs/promises';
 import fs from 'fs';
+import { Writable } from 'node:stream';
 import log4js from 'log4js';
-import { SlashCommands, Commands } from './commands.js';
-import type { Config, TauntType, TauntEvent, GuildCountEvent } from './types.js';
+import ky from 'ky';
+import { SlashCommands, Commands, OptionNames } from './commands.js';
+import { type Config, type TauntType, type TauntEvent, type GuildCountEvent, SupportedMimeTypes, TauntParameters, TauntTypes } from './types.js';
 
 interface QueueItem {
     file: string;
@@ -184,6 +187,9 @@ export class TauntBot {
                         }
                     );
                     break;
+                case Commands.UPLOAD:
+                    this.handleUpload(interaction)
+                    break;
                 case Commands.HELP:
                     await interaction.reply({
                         flags: MessageFlags.Ephemeral,
@@ -217,6 +223,10 @@ export class TauntBot {
                                     {
                                         name: `/stop`,
                                         value: 'Cancels the current track if you started it (or if you\'re an admin)'
+                                    },
+                                    {
+                                        name: `/upload`,
+                                        value: 'Upload taunts for playback.'
                                     },
                                     {
                                         name: `/invite`,
@@ -289,6 +299,41 @@ export class TauntBot {
     resolveTaunt(item: string | QueueItem) {
         const filename = typeof item === 'string' ? item : item.file;
         return path.resolve(path.join(this.audioDir, filename));
+    }
+
+    private async handleUpload(interaction: ChatInputCommandInteraction) {
+        const tauntType = interaction.options.getString(OptionNames.TYPE) as TauntType;
+        const audio = interaction.options.getAttachment(OptionNames.AUDIO);
+        if (SupportedMimeTypes.every(mime => mime !== audio.contentType)) {
+            await interaction.reply({
+                content: `${audio.contentType} is not a supported audio format.`,
+                flags: MessageFlags.Ephemeral
+            });
+            return;
+        }
+        this.logger.debug('uploaded audio duration: %n', audio.duration);
+        const params = TauntParameters[tauntType];
+        if ((audio.duration || 0) > params.maxDuration) {
+            await interaction.reply({
+                content: `${aOrAn`${tauntType} taunt can't be longer than`} ${params.maxDurationHumanReadable}`,
+                flags: MessageFlags.Ephemeral
+            });
+            return;
+        }
+        await interaction.reply({
+            content: `Processing your ${tauntType} taunt...`,
+            flags: MessageFlags.Ephemeral
+        });
+        const tmpDir = await fsp.mkdtemp(path.join(this.audioDir, 'tb_'));
+        const outLocation = path.join(tmpDir, audio.name)
+        const output = fs.createWriteStream(outLocation);
+        this.logger.debug('downloading taunt to %s', outLocation);
+        await (await ky.get(audio.url)).body.pipeTo(Writable.toWeb(output));
+        output.close();
+
+        // todo: convert and place in this.audioDir
+
+        await fsp.rm(tmpDir, { recursive: true, force: true });
     }
 
     async tauntExists(item: QueueItem): Promise<boolean> {
@@ -474,11 +519,11 @@ function generateReply(queued: boolean, queueItem: QueueItem) {
     return `${queued ? 'Queued' : 'Playing'} ${userMention(queueItem.target)}'s ${queueItem.interaction.commandName} taunt.`
 }
 
-function resolveTauntType(type: string): TauntType {
-    if ([Commands.LOSE, Commands.MVP, 'intro'].includes(type)) {
+function resolveTauntType(type: string | TauntType): TauntType {
+    if ([Commands.LOSE, Commands.MVP, TauntTypes.INTRO].includes(type)) {
         return type as TauntType;
     }
-    return 'victory';
+    return TauntTypes.VICTORY;
 }
 
 function createAudioPlayer(callback: FinishCallback) {
