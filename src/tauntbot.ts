@@ -7,7 +7,7 @@
 
 */
 import { REST, Client, GatewayIntentBits, Events, Routes, GuildMember, userMention, hyperlink, PermissionFlagsBits, MessageFlags } from 'discord.js';
-import type { ActivityOptions, VoiceBasedChannel, ChatInputCommandInteraction, APIEmbedField } from 'discord.js';
+import type { ActivityOptions, VoiceBasedChannel, ChatInputCommandInteraction, APIEmbedField, APIApplicationCommand } from 'discord.js';
 import * as Voice from '@discordjs/voice';
 import path from 'path';
 import fsp from 'fs/promises';
@@ -265,6 +265,10 @@ export class TauntBot {
     setShard(shard: number) {
         this.logger = log4js.getLogger(getLoggerCategory(`${shard}`));
         this.logger.level = this.loglevel;
+    }
+
+    async getCommands() {
+        return (await this.client.application.commands.fetch()).map(command => command.toJSON()) as APIApplicationCommand[];
     }
 
     stop(interaction: ChatInputCommandInteraction): string {

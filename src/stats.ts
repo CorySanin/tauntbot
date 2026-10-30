@@ -5,7 +5,7 @@ import { Api } from '@top-gg/sdk';
 import prom from 'prom-client';
 import { Web } from './web.js';
 import type { Config, TauntType, BotEvent, TauntEvent, GuildCountEvent } from './types.js';
-import type { Shard } from 'discord.js';
+import type { APIApplicationCommand, Shard } from 'discord.js';
 
 export type TauntStats = {
     period: number;
@@ -44,7 +44,7 @@ export class Stats {
         this.logger.level = conf.loglevel;
         this.statDir = conf.statsDirectory;
         if (conf.topggtoken) {
-            this.topgg = new Api(conf.topggtoken)
+            this.topgg = new Api(conf.topggtoken);
         }
         this.readStats();
         if (!conf.webport) {
@@ -116,7 +116,7 @@ export class Stats {
             case 'guildCount':
                 const stats = (m as GuildCountEvent).value;
                 if (this.topgg) {
-                    this.topgg.postStats({
+                    this.topgg.postMetrics({
                         serverCount: stats.serverCount,
                         shardCount: stats.shardCount
                     }).catch(ex => this.logger.error('failed to post top.gg stats: %s', ex));
@@ -126,6 +126,10 @@ export class Stats {
             default:
                 break;
         }
+    }
+
+    postCommands = async (commands: APIApplicationCommand[]) => {
+        return await this.topgg?.postCommands(commands);
     }
 
     incrementTauntCount(event: TauntEvent) {

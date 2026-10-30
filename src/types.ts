@@ -1,4 +1,4 @@
-import type { ActivityOptions } from 'discord.js';
+import type { ActivityOptions, APIApplicationCommand } from 'discord.js';
 
 export interface Config {
     loglevel: string;
@@ -82,6 +82,13 @@ export interface ShardMessage extends BotEvent {
     type: 'shardid';
     value: number;
 }
+
+export interface CommandsMessage extends BotEvent {
+    type: 'commands';
+    value: APIApplicationCommand[];
+}
+
+export type BotEventType = TauntEvent | GuildCountEvent | ShardMessage | CommandsMessage;
 
 export const SupportedMimeTypes = [
     'audio/aac',
