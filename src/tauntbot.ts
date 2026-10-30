@@ -15,6 +15,7 @@ import fs from 'fs';
 import { Writable } from 'node:stream';
 import log4js from 'log4js';
 import ky from 'ky';
+import ffmpeg from 'ffmpeg';
 import { SlashCommands, Commands, OptionNames } from './commands.js';
 import { type Config, type TauntType, type TauntEvent, type GuildCountEvent, SupportedMimeTypes, TauntParameters, TauntTypes } from './types.js';
 
@@ -86,7 +87,7 @@ export class TauntBot {
                     invoker: newMember.id,
                     target: newMember.id,
                     type,
-                    file: `${newMember.id}_${type}.ogg`,
+                    file: getTauntFileName(newMember.id, type),
                     playing: false,
                     interaction: null,
                     queued: false
@@ -120,7 +121,7 @@ export class TauntBot {
                         invoker: interaction.member.id,
                         target: target.id,
                         type,
-                        file: `${target.id}_${type}.ogg`,
+                        file: getTauntFileName(target.id, type),
                         playing: false,
                         interaction,
                         queued: false
@@ -202,9 +203,8 @@ export class TauntBot {
                                 },
                                 description: (`Every time you win, listen to your anthem by joining a voice channel and entering \`/win\`` +
                                     ` in the chat. For smaller achievements, use \`/mvp\` to hear a shorter audio track of your choosing. ` +
-                                    `To get started, log in with your Discord account at ${hyperlink(trimProtocol(conf.website), conf.website)}. ` +
-                                    "Upload your taunts and you'll be ready to go! " +
-                                    "\n*You must be connected to a voice channel for it to work.* " +
+                                    `Upload audio clips with the \`/upload\` command and you'll be ready to go!\n` +
+                                    "\n*You must be connected to a voice channel for it to work.*\n" +
                                     "\nCreated by Cory Sanin (AKA WORM)"),
                                 color: conf.color,
                                 fields: [
@@ -302,7 +302,7 @@ export class TauntBot {
     }
 
     private async handleUpload(interaction: ChatInputCommandInteraction) {
-        const tauntType = interaction.options.getString(OptionNames.TYPE) as TauntType;
+        const tauntType = resolveTauntType(interaction.options.getString(OptionNames.TYPE));
         const audio = interaction.options.getAttachment(OptionNames.AUDIO);
         if (SupportedMimeTypes.every(mime => mime !== audio.contentType)) {
             await interaction.reply({
@@ -321,7 +321,7 @@ export class TauntBot {
             return;
         }
         await interaction.reply({
-            content: `Processing your ${tauntType} taunt...`,
+            content: `Processing your ${tauntType} taunt... ⏳️`,
             flags: MessageFlags.Ephemeral
         });
         const tmpDir = await fsp.mkdtemp(path.join(this.audioDir, 'tb_'));
@@ -330,10 +330,28 @@ export class TauntBot {
         this.logger.debug('downloading taunt to %s', outLocation);
         await (await ky.get(audio.url)).body.pipeTo(Writable.toWeb(output));
         output.close();
-
-        // todo: convert and place in this.audioDir
-
-        await fsp.rm(tmpDir, { recursive: true, force: true });
+        
+        const memberId = (interaction.member as GuildMember).id;
+        const writeDest = path.join(tmpDir, getTauntFileName(memberId, tauntType));
+        try {
+            const conv = await ffmpeg(outLocation, { overwrite: true });
+            await conv
+                .setAudioCodec('libopus')
+                .save(writeDest);
+            await fsp.rename(writeDest, path.join(this.audioDir, getTauntFileName(memberId, tauntType)));
+            await interaction.editReply({
+                content: `Successfully uploaded ${tauntType} taunt 🏆️`
+            });
+        }
+        catch(ex) {
+            this.logger.error('audio conversion failed: %s', ex);
+            await interaction.editReply({
+                content: `${tauntType} taunt upload failed 😬`
+            });
+        }
+        finally {
+            await fsp.rm(tmpDir, { recursive: true, force: true });
+        }
     }
 
     async tauntExists(item: QueueItem): Promise<boolean> {
@@ -538,15 +556,10 @@ function createAudioPlayer(callback: FinishCallback) {
     return player;
 }
 
-function trimProtocol(url: string) {
-    const needle = '://';
-    const pos = url.indexOf(needle);
-    if (pos < 0) {
-        return url;
-    }
-    return url.substring(pos + needle.length);
-}
-
 function getLoggerCategory(shard?: string) {
     return `${path.basename(import.meta.filename)}${shard ? `[${shard}]` : ''}`;
+}
+
+function getTauntFileName(memberId: string, type: TauntType) {
+    return `${memberId}_${type}.ogg`;
 }

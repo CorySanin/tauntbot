@@ -64,7 +64,7 @@ export const SlashCommands = [
                 .setDescription('Which taunt to upload/replace')
                 .setRequired(true)
                 .setChoices(
-                    createLiteralChoice(TauntTypes.VICTORY),
+                    createLiteralChoice(Commands.WIN),
                     createLiteralChoice(TauntTypes.MVP),
                     createLiteralChoice(TauntTypes.INTRO),
                     createLiteralChoice(TauntTypes.LOSE)
