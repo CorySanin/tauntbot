@@ -191,6 +191,15 @@ export class TauntBot {
                 case Commands.UPLOAD:
                     this.handleUpload(interaction)
                     break;
+                case Commands.DELETE:
+                    const memberId = (interaction.member as GuildMember).id;
+                    const tauntType = resolveTauntType(interaction.options.getString(OptionNames.TYPE));
+                    await fsp.rm(path.join(this.audioDir, getTauntFileName(memberId, tauntType)), {force: true});
+                    await interaction.reply({
+                        content: `${tauntType} taunt deleted 🗑️`,
+                        flags: MessageFlags.Ephemeral
+                    });
+                    break;
                 case Commands.HELP:
                     await interaction.reply({
                         flags: MessageFlags.Ephemeral,
@@ -227,6 +236,10 @@ export class TauntBot {
                                     {
                                         name: `/upload`,
                                         value: 'Upload taunts for playback.'
+                                    },
+                                    {
+                                        name: `/delete`,
+                                        value: 'Delete a taunt.'
                                     },
                                     {
                                         name: `/invite`,

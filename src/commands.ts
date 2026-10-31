@@ -9,10 +9,7 @@ export const Commands = {
     INVITE: 'invite',
     HELP: 'help',
     UPLOAD: 'upload',
-    /**
-     * Not really a command on its own but useful for uploads
-     */
-    INTRO: 'intro'
+    DELETE: 'delete',
 };
 
 export const OptionNames = {
@@ -74,5 +71,19 @@ export const SlashCommands = [
             option.setName(OptionNames.AUDIO)
             .setDescription('Taunt audio clip to upload')
             .setRequired(true)
+        ),
+    new SlashCommandBuilder()
+        .setName(Commands.DELETE)
+        .setDescription('Delete taunt')
+        .addStringOption(option =>
+            option.setName(OptionNames.TYPE)
+                .setDescription('Which taunt to delete')
+                .setRequired(true)
+                .setChoices(
+                    createLiteralChoice(Commands.WIN),
+                    createLiteralChoice(TauntTypes.MVP),
+                    createLiteralChoice(TauntTypes.INTRO),
+                    createLiteralChoice(TauntTypes.LOSE)
+                )
         )
 ];
