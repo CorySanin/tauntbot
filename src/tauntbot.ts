@@ -74,7 +74,7 @@ export class TauntBot {
         });
 
         client.on(Events.GuildDelete, guild => {
-            this.logger.info('left guild %s', guild.name);
+            guild.name && this.logger.info('left guild %s', guild.name);
             this.updateServerCount();
         });
 
