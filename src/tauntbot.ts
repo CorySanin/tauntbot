@@ -93,7 +93,10 @@ export class TauntBot {
                     queued: false
                 };
                 if (await this.tauntExists(options)) {
-                    this.queueAudio(options);
+                    const result = await this.queueAudio(options);
+                    if (typeof result !== 'string') {
+                        result.handleQueue();
+                    }
                 }
             }
         });
@@ -127,16 +130,17 @@ export class TauntBot {
                         queued: false
                     };
                     const result = await this.queueAudio(item);
-                    if (typeof result === 'number') {
+                    if (typeof result !== 'string') {
                         this.logger.info('replying in channel "%s"', interaction.channel.name);
                         try {
                             await interaction.reply({
-                                content: generateReply(result > 1, item)
+                                content: generateReply(result.len > 1, item)
                             });
                         }
                         catch (ex) {
                             this.logger.error('failed to reply to command: %s', ex)
                         }
+                        result.handleQueue();
                     }
                     else {
                         await interaction.reply({
@@ -194,7 +198,7 @@ export class TauntBot {
                 case Commands.DELETE:
                     const memberId = (interaction.member as GuildMember).id;
                     const tauntType = resolveTauntType(interaction.options.getString(OptionNames.TYPE));
-                    await fsp.rm(path.join(this.audioDir, getTauntFileName(memberId, tauntType)), {force: true});
+                    await fsp.rm(path.join(this.audioDir, getTauntFileName(memberId, tauntType)), { force: true });
                     await interaction.reply({
                         content: `${tauntType} taunt deleted 🗑️`,
                         flags: MessageFlags.Ephemeral
@@ -347,7 +351,7 @@ export class TauntBot {
         this.logger.debug('downloading taunt to %s', outLocation);
         await (await ky.get(audio.url)).body.pipeTo(Writable.toWeb(output));
         output.close();
-        
+
         const memberId = (interaction.member as GuildMember).id;
         const writeDest = path.join(tmpDir, getTauntFileName(memberId, tauntType));
         try {
@@ -360,7 +364,7 @@ export class TauntBot {
                 content: `Successfully uploaded ${tauntType} taunt 🏆️`
             });
         }
-        catch(ex) {
+        catch (ex) {
             this.logger.error('audio conversion failed: %s', ex);
             await interaction.editReply({
                 content: `${tauntType} taunt upload failed 😬`
@@ -381,12 +385,15 @@ export class TauntBot {
         return true;
     }
 
-    async queueAudio(item: QueueItem): Promise<number | string> {
+    async queueAudio(item: QueueItem) {
         if (getQueueKey(item) === null) {
             return aOrAn`You need to be in a voice channel to play ${item.type} taunt.`;
         }
         if (!this.isQueueable(item)) {
             return aOrAn`You've already queued up ${item.type} taunt.`;
+        }
+        if (item.channel.id === item.channel.guild.afkChannelId) {
+            return 'Can\'t play a taunt in an AFK channel';
         }
         if (! await this.tauntExists(item)) {
             if (item.target === item.invoker) {
@@ -404,8 +411,7 @@ export class TauntBot {
         else {
             queues[key] = [item];
         }
-        this.handleQueue(key);
-        return queues[key].length;
+        return {len: queues[key].length, handleQueue: () => this.handleQueue(key)};
     }
 
     async handleQueue(key: string, cont: boolean = false) {
@@ -429,24 +435,59 @@ export class TauntBot {
             });
         }
 
+        item.interaction.deferReply
         const details: PlayerDetails = this.players[key] || this.createPlayerDetails(key);
-        details.connection = Voice.joinVoiceChannel({
+        if (!item.channel.joinable) {
+            await item.interaction.editReply({
+                content: `Failed to connect to ${item.channel.name}, not joinable ⚠️`
+            });
+            details.callback();
+            return
+        }
+        const connection = details.connection = Voice.joinVoiceChannel({
             channelId: item.channel.id,
             guildId: item.channel.guild.id,
-            adapterCreator: item.channel.guild.voiceAdapterCreator
+            adapterCreator: item.channel.guild.voiceAdapterCreator,
+            selfMute: false
         });
         this.players[key] = details;
 
-        details.connection.on('error', (err) => {
+        try {
+            await Voice.entersState(connection, Voice.VoiceConnectionStatus.Ready, 5000);
+        }
+        catch (err) {
+            this.logger.error("Failed to connect to voice channel %s/%s: %s", item.channel.guild.name, item.channel.name, err);
+            await item.interaction.editReply({
+                content: `Failed to connect to ${item.channel.name} ⚠️`
+            });
+            details.callback();
+            return;
+        }
+
+        if (item.channel.joinable)
+
+        connection.on('error', (err) => {
             this.logger.error('VoiceConnection Error: %s', err);
             details.callback();
         });
-        details.connection.subscribe(details.playerobj);
-        if (details.connection.state.status === Voice.VoiceConnectionStatus.Ready) {
-            this.playAudio(key);
+        connection.subscribe(details.playerobj);
+        if (item.channel.members.get(this.client.user.id).voice.serverMute) {
+            item.interaction.editReply({
+                content: `Failed to play to ${item.channel.name}, can't unmute ⚠️`,
+            });
+            details.callback();
+            return
         }
-        else {
-            details.connection.once(Voice.VoiceConnectionStatus.Ready, () => this.playAudio(key));
+        try {
+            await this.playAudio(key);
+        }
+        catch (err) {
+            this.logger.error("Failed to play to voice channel %s/%s: %s", item.channel.guild.name, item.channel.name, err);
+            await item.interaction.editReply({
+                content: `Failed to play to ${item.channel.name} ⚠️`
+            });
+            details.callback();
+            return;
         }
     }
 
@@ -483,6 +524,7 @@ export class TauntBot {
         this.incrementTauntCount(item.type);
         const audio = Voice.createAudioResource(this.resolveTaunt(item));
         playerDetails.playerobj.play(audio);
+        return Voice.entersState(playerDetails.playerobj, Voice.AudioPlayerStatus.Playing, 5000);
     }
 
     incrementTauntCount(type: TauntType) {
