@@ -6,14 +6,18 @@
    |_|\__,_|\__,_|_| |_|\__(_)____/ \___/ \__|
 
 */
-import { REST, Client, GatewayIntentBits, Events, Routes, GuildMember, userMention, hyperlink, PermissionFlagsBits, type ActivityOptions, type VoiceBasedChannel, type ChatInputCommandInteraction, type APIEmbedField, MessageFlags } from 'discord.js';
+import { REST, Client, GatewayIntentBits, Events, Routes, GuildMember, userMention, hyperlink, PermissionFlagsBits, MessageFlags } from 'discord.js';
+import type { ActivityOptions, VoiceBasedChannel, ChatInputCommandInteraction, APIEmbedField, APIApplicationCommand } from 'discord.js';
 import * as Voice from '@discordjs/voice';
 import path from 'path';
 import fsp from 'fs/promises';
 import fs from 'fs';
+import { Writable } from 'node:stream';
 import log4js from 'log4js';
-import { SlashCommands, Commands } from './commands.js';
-import type { Config, TauntType, TauntEvent, GuildCountEvent } from './types.js';
+import ky from 'ky';
+import ffmpeg from 'ffmpeg';
+import { SlashCommands, Commands, OptionNames } from './commands.js';
+import { type Config, type TauntType, type TauntEvent, type GuildCountEvent, SupportedMimeTypes, TauntParameters, TauntTypes } from './types.js';
 
 interface QueueItem {
     file: string;
@@ -83,13 +87,16 @@ export class TauntBot {
                     invoker: newMember.id,
                     target: newMember.id,
                     type,
-                    file: `${newMember.id}_${type}.ogg`,
+                    file: getTauntFileName(newMember.id, type),
                     playing: false,
                     interaction: null,
                     queued: false
                 };
                 if (await this.tauntExists(options)) {
-                    this.queueAudio(options);
+                    const result = await this.queueAudio(options);
+                    if (typeof result !== 'string') {
+                        result.handleQueue();
+                    }
                 }
             }
         });
@@ -117,22 +124,23 @@ export class TauntBot {
                         invoker: interaction.member.id,
                         target: target.id,
                         type,
-                        file: `${target.id}_${type}.ogg`,
+                        file: getTauntFileName(target.id, type),
                         playing: false,
                         interaction,
                         queued: false
                     };
                     const result = await this.queueAudio(item);
-                    if (typeof result === 'number') {
+                    if (typeof result !== 'string') {
                         this.logger.info('replying in channel "%s"', interaction.channel.name);
                         try {
                             await interaction.reply({
-                                content: generateReply(result > 1, item)
+                                content: generateReply(result.len > 1, item)
                             });
                         }
                         catch (ex) {
                             this.logger.error('failed to reply to command: %s', ex)
                         }
+                        result.handleQueue();
                     }
                     else {
                         await interaction.reply({
@@ -184,6 +192,18 @@ export class TauntBot {
                         }
                     );
                     break;
+                case Commands.UPLOAD:
+                    this.handleUpload(interaction)
+                    break;
+                case Commands.DELETE:
+                    const memberId = (interaction.member as GuildMember).id;
+                    const tauntType = resolveTauntType(interaction.options.getString(OptionNames.TYPE));
+                    await fsp.rm(path.join(this.audioDir, getTauntFileName(memberId, tauntType)), { force: true });
+                    await interaction.reply({
+                        content: `${tauntType} taunt deleted 🗑️`,
+                        flags: MessageFlags.Ephemeral
+                    });
+                    break;
                 case Commands.HELP:
                     await interaction.reply({
                         flags: MessageFlags.Ephemeral,
@@ -196,9 +216,8 @@ export class TauntBot {
                                 },
                                 description: (`Every time you win, listen to your anthem by joining a voice channel and entering \`/win\`` +
                                     ` in the chat. For smaller achievements, use \`/mvp\` to hear a shorter audio track of your choosing. ` +
-                                    `To get started, log in with your Discord account at ${hyperlink(trimProtocol(conf.website), conf.website)}. ` +
-                                    "Upload your taunts and you'll be ready to go! " +
-                                    "\n*You must be connected to a voice channel for it to work.* " +
+                                    `Upload audio clips with the \`/upload\` command and you'll be ready to go!\n` +
+                                    "\n*You must be connected to a voice channel for it to work.*\n" +
                                     "\nCreated by Cory Sanin (AKA WORM)"),
                                 color: conf.color,
                                 fields: [
@@ -217,6 +236,14 @@ export class TauntBot {
                                     {
                                         name: `/stop`,
                                         value: 'Cancels the current track if you started it (or if you\'re an admin)'
+                                    },
+                                    {
+                                        name: `/upload`,
+                                        value: 'Upload taunts for playback.'
+                                    },
+                                    {
+                                        name: `/delete`,
+                                        value: 'Delete a taunt.'
                                     },
                                     {
                                         name: `/invite`,
@@ -257,6 +284,10 @@ export class TauntBot {
         this.logger.level = this.loglevel;
     }
 
+    async getCommands() {
+        return (await this.client.application.commands.fetch()).map(command => command.toJSON()) as APIApplicationCommand[];
+    }
+
     stop(interaction: ChatInputCommandInteraction): string {
         const key = getQueueKey(interaction);
         if (!key) {
@@ -291,6 +322,59 @@ export class TauntBot {
         return path.resolve(path.join(this.audioDir, filename));
     }
 
+    private async handleUpload(interaction: ChatInputCommandInteraction) {
+        const tauntType = resolveTauntType(interaction.options.getString(OptionNames.TYPE));
+        const audio = interaction.options.getAttachment(OptionNames.AUDIO);
+        if (SupportedMimeTypes.every(mime => mime !== audio.contentType)) {
+            await interaction.reply({
+                content: `${audio.contentType} is not a supported audio format.`,
+                flags: MessageFlags.Ephemeral
+            });
+            return;
+        }
+        this.logger.debug('uploaded audio duration: %n', audio.duration);
+        const params = TauntParameters[tauntType];
+        if ((audio.duration || 0) > params.maxDuration) {
+            await interaction.reply({
+                content: `${aOrAn`${tauntType} taunt can't be longer than`} ${params.maxDurationHumanReadable}`,
+                flags: MessageFlags.Ephemeral
+            });
+            return;
+        }
+        await interaction.reply({
+            content: `Processing your ${tauntType} taunt... ⏳️`,
+            flags: MessageFlags.Ephemeral
+        });
+        const tmpDir = await fsp.mkdtemp(path.join(this.audioDir, 'tb_'));
+        const outLocation = path.join(tmpDir, audio.name)
+        const output = fs.createWriteStream(outLocation);
+        this.logger.debug('downloading taunt to %s', outLocation);
+        await (await ky.get(audio.url)).body.pipeTo(Writable.toWeb(output));
+        output.close();
+
+        const memberId = (interaction.member as GuildMember).id;
+        const writeDest = path.join(tmpDir, getTauntFileName(memberId, tauntType));
+        try {
+            const conv = await ffmpeg(outLocation, { overwrite: true });
+            await conv
+                .setAudioCodec('libopus')
+                .save(writeDest);
+            await fsp.rename(writeDest, path.join(this.audioDir, getTauntFileName(memberId, tauntType)));
+            await interaction.editReply({
+                content: `Successfully uploaded ${tauntType} taunt 🏆️`
+            });
+        }
+        catch (ex) {
+            this.logger.error('audio conversion failed: %s', ex);
+            await interaction.editReply({
+                content: `${tauntType} taunt upload failed 😬`
+            });
+        }
+        finally {
+            await fsp.rm(tmpDir, { recursive: true, force: true });
+        }
+    }
+
     async tauntExists(item: QueueItem): Promise<boolean> {
         try {
             await fsp.access(this.resolveTaunt(item), fs.constants.R_OK);
@@ -301,12 +385,15 @@ export class TauntBot {
         return true;
     }
 
-    async queueAudio(item: QueueItem): Promise<number | string> {
+    async queueAudio(item: QueueItem) {
         if (getQueueKey(item) === null) {
             return aOrAn`You need to be in a voice channel to play ${item.type} taunt.`;
         }
         if (!this.isQueueable(item)) {
             return aOrAn`You've already queued up ${item.type} taunt.`;
+        }
+        if (item.channel.id === item.channel.guild.afkChannelId) {
+            return 'Can\'t play a taunt in an AFK channel';
         }
         if (! await this.tauntExists(item)) {
             if (item.target === item.invoker) {
@@ -324,8 +411,7 @@ export class TauntBot {
         else {
             queues[key] = [item];
         }
-        this.handleQueue(key);
-        return queues[key].length;
+        return {len: queues[key].length, handleQueue: () => this.handleQueue(key)};
     }
 
     async handleQueue(key: string, cont: boolean = false) {
@@ -349,24 +435,59 @@ export class TauntBot {
             });
         }
 
+        item.interaction.deferReply
         const details: PlayerDetails = this.players[key] || this.createPlayerDetails(key);
-        details.connection = Voice.joinVoiceChannel({
+        if (!item.channel.joinable) {
+            await item.interaction.editReply({
+                content: `Failed to connect to ${item.channel.name}, not joinable ⚠️`
+            });
+            details.callback();
+            return
+        }
+        const connection = details.connection = Voice.joinVoiceChannel({
             channelId: item.channel.id,
             guildId: item.channel.guild.id,
-            adapterCreator: item.channel.guild.voiceAdapterCreator
+            adapterCreator: item.channel.guild.voiceAdapterCreator,
+            selfMute: false
         });
         this.players[key] = details;
 
-        details.connection.on('error', (err) => {
+        try {
+            await Voice.entersState(connection, Voice.VoiceConnectionStatus.Ready, 5000);
+        }
+        catch (err) {
+            this.logger.error("Failed to connect to voice channel %s/%s: %s", item.channel.guild.name, item.channel.name, err);
+            await item.interaction.editReply({
+                content: `Failed to connect to ${item.channel.name} ⚠️`
+            });
+            details.callback();
+            return;
+        }
+
+        if (item.channel.joinable)
+
+        connection.on('error', (err) => {
             this.logger.error('VoiceConnection Error: %s', err);
             details.callback();
         });
-        details.connection.subscribe(details.playerobj);
-        if (details.connection.state.status === Voice.VoiceConnectionStatus.Ready) {
-            this.playAudio(key);
+        connection.subscribe(details.playerobj);
+        if (item.channel.members.get(this.client.user.id).voice.serverMute) {
+            item.interaction.editReply({
+                content: `Failed to play to ${item.channel.name}, can't unmute ⚠️`,
+            });
+            details.callback();
+            return
         }
-        else {
-            details.connection.once(Voice.VoiceConnectionStatus.Ready, () => this.playAudio(key));
+        try {
+            await this.playAudio(key);
+        }
+        catch (err) {
+            this.logger.error("Failed to play to voice channel %s/%s: %s", item.channel.guild.name, item.channel.name, err);
+            await item.interaction.editReply({
+                content: `Failed to play to ${item.channel.name} ⚠️`
+            });
+            details.callback();
+            return;
         }
     }
 
@@ -403,6 +524,7 @@ export class TauntBot {
         this.incrementTauntCount(item.type);
         const audio = Voice.createAudioResource(this.resolveTaunt(item));
         playerDetails.playerobj.play(audio);
+        return Voice.entersState(playerDetails.playerobj, Voice.AudioPlayerStatus.Playing, 5000);
     }
 
     incrementTauntCount(type: TauntType) {
@@ -474,11 +596,11 @@ function generateReply(queued: boolean, queueItem: QueueItem) {
     return `${queued ? 'Queued' : 'Playing'} ${userMention(queueItem.target)}'s ${queueItem.interaction.commandName} taunt.`
 }
 
-function resolveTauntType(type: string): TauntType {
-    if ([Commands.LOSE, Commands.MVP, 'intro'].includes(type)) {
+function resolveTauntType(type: string | TauntType): TauntType {
+    if ([Commands.LOSE, Commands.MVP, TauntTypes.INTRO].includes(type)) {
         return type as TauntType;
     }
-    return 'victory';
+    return TauntTypes.VICTORY;
 }
 
 function createAudioPlayer(callback: FinishCallback) {
@@ -493,15 +615,10 @@ function createAudioPlayer(callback: FinishCallback) {
     return player;
 }
 
-function trimProtocol(url: string) {
-    const needle = '://';
-    const pos = url.indexOf(needle);
-    if (pos < 0) {
-        return url;
-    }
-    return url.substring(pos + needle.length);
-}
-
 function getLoggerCategory(shard?: string) {
     return `${path.basename(import.meta.filename)}${shard ? `[${shard}]` : ''}`;
+}
+
+function getTauntFileName(memberId: string, type: TauntType) {
+    return `${memberId}_${type}.ogg`;
 }
