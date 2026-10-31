@@ -434,8 +434,7 @@ export class TauntBot {
                 content: generateReply(false, item)
             });
         }
-
-        item.interaction.deferReply
+        
         const details: PlayerDetails = this.players[key] || this.createPlayerDetails(key);
         if (!item.channel.joinable) {
             await item.interaction.editReply({
