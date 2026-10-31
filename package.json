@@ -43,7 +43,6 @@
     "watch": "tsc -w"
   },
   "dependencies": {
-    "@discordjs/opus": "^0.10.0",
     "@discordjs/voice": "^0.19.2",
     "@top-gg/sdk": "^4.0.0",
     "bufferutil": "^4.1.0",
