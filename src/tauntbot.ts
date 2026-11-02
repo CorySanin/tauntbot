@@ -24,8 +24,8 @@ interface QueueItem {
     invoker: string;
     target: string;
     type: TauntType;
-    channel: VoiceBasedChannel;
-    interaction?: ChatInputCommandInteraction;
+    channel: VoiceBasedChannel | null;
+    interaction: ChatInputCommandInteraction | null;
     playing: boolean;
     queued: boolean;
 }
@@ -36,7 +36,7 @@ interface QueueManager {
 
 interface PlayerDetails {
     playerobj: Voice.AudioPlayer;
-    connection: Voice.VoiceConnection;
+    connection: Voice.VoiceConnection | null;
     callback: FinishCallback;
 }
 
@@ -49,7 +49,7 @@ type FinishCallback = (oldState?: Voice.AudioPlayerState | Voice.AudioPlayerErro
 export class TauntBot {
     public start: () => Promise<void>;
     private client: Client;
-    private activity: ActivityOptions;
+    private activity: ActivityOptions | undefined;
     private queues: QueueManager = {};
     private players: PlayerManager = {};
     private audioDir: string;
@@ -111,7 +111,7 @@ export class TauntBot {
                 return;
             }
 
-            this.logger.info('got %s command in %s', interaction.commandName, interaction.guild.name);
+            this.logger.info('got %s command in %s', interaction.commandName, interaction.guild?.name ?? '~~UNKNOWN~~');
 
             switch (interaction.commandName) {
                 case Commands.MVP:
@@ -128,10 +128,10 @@ export class TauntBot {
                         playing: false,
                         interaction,
                         queued: false
-                    };
+                    } satisfies QueueItem;
                     const result = await this.queueAudio(item);
                     if (typeof result !== 'string') {
-                        this.logger.info('replying in channel "%s"', interaction.channel.name);
+                        this.logger.info('replying in channel "%s"', interaction.channel?.name ?? '~~UNKNOWN~~');
                         try {
                             await interaction.reply({
                                 content: generateReply(result.len > 1, item)
@@ -158,7 +158,7 @@ export class TauntBot {
                     const fields: APIEmbedField[] = [
                         {
                             name: 'Invite',
-                            value: `${hyperlink(`Invite ${client.user.username}`, `https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=3163136`)} to your server`
+                            value: `${hyperlink(`Invite ${client.user?.username ?? 'this bot'}`, `https://discordapp.com/oauth2/authorize?client_id=${client.user?.id ?? 0}&scope=bot&permissions=3163136`)} to your server`
                         }
                     ];
                     if (conf.website) {
@@ -170,7 +170,7 @@ export class TauntBot {
                     if (conf.guild) {
                         fields.push({
                             name: 'Discord',
-                            value: `Discuss ${hyperlink(`${client.user.username} on Discord`, conf.guild)}`
+                            value: `Discuss ${hyperlink(`${client.user?.username ?? 'this bot'} on Discord`, conf.guild)}`
                         });
                     }
                     await interaction.reply(
@@ -179,11 +179,11 @@ export class TauntBot {
                             embeds: [
                                 {
                                     author: {
-                                        name: client.user.username,
+                                        name: client.user?.username ?? 'this bot',
                                         url: conf.website
                                     },
                                     thumbnail: {
-                                        url: client.user.avatarURL()
+                                        url: client.user?.avatarURL() ?? 'https://raw.githubusercontent.com/CorySanin/tauntbot/refs/heads/master/logo.svg'
                                     },
                                     color: conf.color,
                                     fields
@@ -210,9 +210,9 @@ export class TauntBot {
                         embeds: [
                             {
                                 author: {
-                                    name: client.user.username,
+                                    name: client.user?.username ?? 'Taunt Bot',
                                     url: conf.website,
-                                    icon_url: client.user.avatarURL()
+                                    icon_url: client.user?.avatarURL() ?? 'https://raw.githubusercontent.com/CorySanin/tauntbot/refs/heads/master/logo.svg'
                                 },
                                 description: (`Every time you win, listen to your anthem by joining a voice channel and entering \`/win\`` +
                                     ` in the chat. For smaller achievements, use \`/mvp\` to hear a shorter audio track of your choosing. ` +
@@ -247,7 +247,7 @@ export class TauntBot {
                                     },
                                     {
                                         name: `/invite`,
-                                        value: `Generates a link to invite ${client.user.username} to a server near you!`
+                                        value: `Generates a link to invite ${client.user?.username ?? 'Taunt Bot'} to a server near you!`
                                     },
                                     {
                                         name: `/help`,
@@ -272,7 +272,7 @@ export class TauntBot {
                 const timeout = setTimeout(reject, 8000, "failed to log in.");
                 await client.login(conf.token);
                 clearTimeout(timeout);
-                this.logger.info('logged in as "%s"', client.user.username);
+                this.logger.info('logged in as "%s"', client.user?.username ?? 'a bot?');
                 await this.registerCommands(conf.token);
                 resolve();
             });
@@ -285,7 +285,11 @@ export class TauntBot {
     }
 
     async getCommands() {
-        return (await this.client.application.commands.fetch()).map(command => command.toJSON()) as APIApplicationCommand[];
+        const commands = await this.client.application?.commands.fetch();
+        if (!commands) {
+            return [];
+        }
+        return commands.map(command => command.toJSON()) as APIApplicationCommand[];
     }
 
     stop(interaction: ChatInputCommandInteraction): string {
@@ -295,7 +299,7 @@ export class TauntBot {
         }
         const item = this.queues[key]?.[0];
         const player = this.players[key];
-        if (!item || !item.playing) {
+        if (!item || !item.playing || !player) {
             return 'Nothing to stop.';
         }
         const invoker = interaction.member as GuildMember;
@@ -313,8 +317,8 @@ export class TauntBot {
 
     isQueueable(item: QueueItem): boolean {
         const key = getQueueKey(item);
-        const inQueue: boolean | null = key && this.queues?.[key]?.some(q => compareQueueItems(item, q));
-        return typeof inQueue === 'boolean' ? !inQueue : true;
+        const inQueue: boolean | null = ((!!key) && this.queues?.[key]?.some(q => compareQueueItems(item, q))) ?? false;
+        return !inQueue;
     }
 
     resolveTaunt(item: string | QueueItem) {
@@ -325,7 +329,14 @@ export class TauntBot {
     private async handleUpload(interaction: ChatInputCommandInteraction) {
         const tauntType = resolveTauntType(interaction.options.getString(OptionNames.TYPE));
         const audio = interaction.options.getAttachment(OptionNames.AUDIO);
-        if (SupportedMimeTypes.every(mime => mime !== audio.contentType)) {
+        if (!audio) {
+            await interaction.reply({
+                content: `Audio is required.`,
+                flags: MessageFlags.Ephemeral
+            });
+            return;
+        }
+        if (SupportedMimeTypes.every(mime => mime !== audio?.contentType)) {
             await interaction.reply({
                 content: `${audio.contentType} is not a supported audio format.`,
                 flags: MessageFlags.Ephemeral
@@ -349,7 +360,7 @@ export class TauntBot {
         const outLocation = path.join(tmpDir, audio.name)
         const output = fs.createWriteStream(outLocation);
         this.logger.debug('downloading taunt to %s', outLocation);
-        await (await ky.get(audio.url)).body.pipeTo(Writable.toWeb(output));
+        await (await ky.get(audio.url)).body?.pipeTo(Writable.toWeb(output));
         output.close();
 
         const memberId = (interaction.member as GuildMember).id;
@@ -392,7 +403,7 @@ export class TauntBot {
         if (!this.isQueueable(item)) {
             return aOrAn`You've already queued up ${item.type} taunt.`;
         }
-        if (item.channel.id === item.channel.guild.afkChannelId) {
+        if (item.channel && item.channel.id === item.channel.guild.afkChannelId) {
             return 'Can\'t play a taunt in an AFK channel';
         }
         if (! await this.tauntExists(item)) {
@@ -405,13 +416,16 @@ export class TauntBot {
         }
         const queues = this.queues;
         const key = getQueueKey(item);
+        if (!key) {
+            return { len: -1, handleQueue: () => null };
+        }
         if (item.queued = !!queues[key]) {
             queues[key].push(item);
         }
         else {
             queues[key] = [item];
         }
-        return {len: queues[key].length, handleQueue: () => this.handleQueue(key)};
+        return { len: queues[key].length, handleQueue: () => this.handleQueue(key) };
     }
 
     async handleQueue(key: string, cont: boolean = false) {
@@ -424,7 +438,7 @@ export class TauntBot {
             return;
         }
         const item = queue[0];
-        if (item.playing) {
+        if (!item || item.playing) {
             return;
         }
         item.playing = true;
@@ -434,7 +448,7 @@ export class TauntBot {
                 content: generateReply(false, item)
             });
         }
-        
+
         const details: PlayerDetails = this.players[key] || this.createPlayerDetails(key);
         if (!item.channel.joinable) {
             await item.interaction.editReply({
@@ -465,10 +479,10 @@ export class TauntBot {
 
         if (item.channel.joinable)
 
-        connection.on('error', (err) => {
-            this.logger.error('VoiceConnection Error: %s', err);
-            details.callback();
-        });
+            connection.on('error', (err) => {
+                this.logger.error('VoiceConnection Error: %s', err);
+                details.callback();
+            });
         connection.subscribe(details.playerobj);
         if (item.channel.members.get(this.client.user.id).voice.serverMute) {
             item.interaction.editReply({
@@ -517,9 +531,12 @@ export class TauntBot {
     }
 
     playAudio(key: string) {
-        const item = this.queues[key][0];
+        const item = this.queues[key]?.[0];
         const playerDetails = this.players[key];
-        this.logger.info('playing %s on %s', item.file, item.channel.guild.name);
+        if (!item || !playerDetails) {
+            return;
+        }
+        this.logger.info('playing %s on %s', item.file, item?.channel?.guild?.name ?? '~~unknown~~');
         this.incrementTauntCount(item.type);
         const audio = Voice.createAudioResource(this.resolveTaunt(item));
         playerDetails.playerobj.play(audio);
@@ -531,11 +548,11 @@ export class TauntBot {
             type: 'taunt',
             value: type
         }
-        return this.client.shard.send(message);
+        return this.client.shard?.send(message);
     }
 
     shiftQueue(key: string) {
-        this.queues[key].shift();
+        this.queues[key]?.shift();
         return this.queues[key];
     }
 
@@ -545,7 +562,7 @@ export class TauntBot {
     }
 
     async updateServerCount() {
-        const counts = await this.client.shard.fetchClientValues('guilds.cache.size') as number[];
+        const counts = ((await this.client.shard?.fetchClientValues('guilds.cache.size')) ?? []) as number[];
         const count = counts.reduce((acc, guildCount) => acc + guildCount, 0);
         const message: GuildCountEvent = {
             type: 'guildCount',
@@ -554,12 +571,15 @@ export class TauntBot {
                 shardCount: counts.length
             }
         };
-        await this.client.shard.send(message);
+        await this.client.shard?.send(message);
         return count;
     }
 
     registerCommands(token: string) {
         const rest = new REST().setToken(token);
+        if (!this.client.user?.id) {
+            return;
+        }
         return rest.put(Routes.applicationCommands(this.client.user.id), { body: SlashCommands.map(c => c.toJSON()) });
     }
 
@@ -567,6 +587,9 @@ export class TauntBot {
         if (!this.activity?.name) {
             this.logger.error('activity missing from config, can\'t set activity.');
             return null;
+        }
+        if (!this.client.user?.id) {
+            return;
         }
         return this.client.user.setActivity(this.activity.name, this.activity);
     }
@@ -592,11 +615,11 @@ function getQueueKey(item: QueueItem | ChatInputCommandInteraction): string | nu
 }
 
 function generateReply(queued: boolean, queueItem: QueueItem) {
-    return `${queued ? 'Queued' : 'Playing'} ${userMention(queueItem.target)}'s ${queueItem.interaction.commandName} taunt.`
+    return `${queued ? 'Queued' : 'Playing'} ${userMention(queueItem.target)}'s ${queueItem.interaction?.commandName ?? 'intro'} taunt.`
 }
 
-function resolveTauntType(type: string | TauntType): TauntType {
-    if ([Commands.LOSE, Commands.MVP, TauntTypes.INTRO].includes(type)) {
+function resolveTauntType(type: string | TauntType | null): TauntType {
+    if ([Commands.LOSE, Commands.MVP, TauntTypes.INTRO].includes(type ?? 'null')) {
         return type as TauntType;
     }
     return TauntTypes.VICTORY;
