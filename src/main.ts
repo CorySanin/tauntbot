@@ -17,13 +17,13 @@ process.on('message', async m => {
         return;
     }
     if (m === 'commands') {
-        process.send({
+        process.send?.({
             type: 'commands',
             value: await bot.getCommands()
         } satisfies CommandsMessage);
         return;
     }
-    if (typeof m === 'object' && 'type' in m && m.type === 'shardid') {
+    if (m && typeof m === 'object' && 'type' in m && m.type === 'shardid') {
         bot.setShard((m as ShardMessage).value);
         return;
     }

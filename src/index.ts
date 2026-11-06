@@ -32,14 +32,14 @@ manager.on('shardCreate', setUpShard);
 
 const shards = await manager.spawn();
 
-shards.first().on('message', (m: BotEventType) => {
+shards.first()?.on('message', (m: BotEventType) => {
     if (typeof m === 'object' && 'type' in m && m.type === 'commands') {
         stats.postCommands(m.value);
     }
 });
 
-shards.first().send('serverCount');
-shards.first().send('commands');
+shards.first()?.send('serverCount');
+shards.first()?.send('commands');
 
 process.on('SIGTERM', async () => {
     stats.close();
