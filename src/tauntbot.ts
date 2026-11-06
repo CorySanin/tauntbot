@@ -173,7 +173,7 @@ export class TauntBot {
                     if (conf.website) {
                         fields.push({
                             name: 'Website',
-                            value: `Visit ${conf.website} to upload taunts`
+                            value: `Visit ${conf.website} for additional info.`
                         });
                     }
                     if (conf.guild) {
@@ -424,7 +424,7 @@ export class TauntBot {
         }
         if (! await this.tauntExists(item)) {
             if (item.target === item.invoker) {
-                return aOrAn`You don't have ${item.type} taunt. Upload one at https://taunt.bot/`;
+                return aOrAn`You don't have ${item.type} taunt. Upload one using the \`/upload\` command.`;
             }
             else {
                 return aOrAn`That user doesn't have ${item.type} taunt.`;
