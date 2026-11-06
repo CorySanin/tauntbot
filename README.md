@@ -9,12 +9,12 @@ Taunt Bot is a Discord bot that plays user-uploaded audio tracks on command. For
 
 ## Running Taunt Bot
 
-Clone this repo, do an `npm install`, and build the project with `npm run build`. Edit `config/config.jsonc` to match your desired configuration. See the [example config file](https://github.com/CorySanin/tauntbot/blob/master/config/config.example.jsonc).
+Clone this repo, do an `pnpm install`, and build the project with `pnpm run build`. Edit `config/config.jsonc` to match your desired configuration. See the [example config file](https://github.com/CorySanin/tauntbot/blob/master/config/config.example.jsonc).
 
 In your audio directory, taunt bot is expecting audio files with names following this format: 
-`{ID of associated user}_{type (victory|mvp|lose|intro)}.ogg`
+`{ID of associated user}_{type (victory|mvp|lose|intro)}.ogg` (files can be populated with the `/upload` command, requires ffmpeg)
 
-Once Taunt Bot has been set up, start the bot with `npm run start`.
+Once Taunt Bot has been set up, start the bot with `pnpm run start`.
 
 ## Docker
 
