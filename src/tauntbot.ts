@@ -19,12 +19,21 @@ import ffmpeg from 'ffmpeg';
 import { SlashCommands, Commands, OptionNames } from './commands.js';
 import { type Config, type TauntType, type TauntEvent, type GuildCountEvent, SupportedMimeTypes, TauntParameters, TauntTypes } from './types.js';
 
+/**
+ * A taunt job.
+ */
 interface QueueItem {
     file: string;
     invoker: string;
     target: string;
     type: TauntType;
+    /**
+     * can be null if not connected to voice
+     */
     channel: VoiceBasedChannel | null;
+    /**
+     * interaction is null if it's a voiceStateUpdate event
+     */
     interaction: ChatInputCommandInteraction | null;
     playing: boolean;
     queued: boolean;
