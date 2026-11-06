@@ -35,8 +35,8 @@ export class Stats {
     private serverCount: number = 0;
     private statDir: string;
     private ready = false;
-    private topgg: Api = null;
-    private web: Web = null;
+    private topgg: Api | null = null;
+    private web: Web;
     private logger: log4js.Logger;
 
     constructor(conf: Config) {

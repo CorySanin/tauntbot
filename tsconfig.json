@@ -6,6 +6,7 @@
     "rootDir": "./",
     "sourceMap": true,
     "inlineSources": true,
+    "strictNullChecks": true,
   },
   "include": ["src/**/*", "test/**/*"],
   "exclude": ["**/*.spec.ts"]

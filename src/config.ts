@@ -3,6 +3,14 @@ import fsp from 'fs/promises';
 import json5 from 'json5';
 import type { Config } from './types.js';
 
+function notStupidParseInt(v: string | number | undefined): number {
+    if (typeof v === 'number') {
+        return v;
+    }
+    return v === undefined ? NaN : parseInt(v);
+}
+
+
 export async function getConfig() {
     const fileConfig = await tryReadConfig();
     const config: Config = {
@@ -15,7 +23,7 @@ export async function getConfig() {
         guild: process.env['GUILD'] || fileConfig?.guild,
         website: process.env['WEBSITE'] || fileConfig?.website,
         topggtoken: process.env['TOPGGTOKEN'] || fileConfig?.topggtoken,
-        webport: parseInt(process.env['WEBPORT']) || fileConfig?.webport,
+        webport: notStupidParseInt(process.env['WEBPORT']) || fileConfig?.webport,
         metricprefix: process.env['METRICPREFIX'] || fileConfig?.metricprefix || 'tauntbot_'
     }
     return config;

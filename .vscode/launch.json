@@ -6,6 +6,7 @@
     "configurations": [
     
         {
+            "outputCapture": "std",
             "type": "node",
             "request": "launch",
             "name": "Launch Program",
