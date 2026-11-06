@@ -44,7 +44,7 @@ interface PlayerManager {
     [guildId: string]: PlayerDetails;
 }
 
-type FinishCallback = (oldState?: Voice.AudioPlayerState | Voice.AudioPlayerError, newState?: Voice.AudioPlayerIdleState) => void;
+type FinishCallback = (oldState?: Voice.AudioPlayerState | Voice.AudioPlayerError | Voice.AudioPlayerState | null, newState?: Voice.AudioPlayerIdleState | Voice.AudioPlayerPausedState | null) => void;
 
 export class TauntBot {
     public start: () => Promise<void>;
@@ -450,9 +450,9 @@ export class TauntBot {
         }
 
         const details: PlayerDetails = this.players[key] || this.createPlayerDetails(key);
-        if (!item.channel.joinable) {
-            await item.interaction.editReply({
-                content: `Failed to connect to ${item.channel.name}, not joinable ⚠️`
+        if (!item.channel?.joinable) {
+            await item.interaction?.editReply({
+                content: `Failed to connect to ${item.channel?.name}, not joinable ⚠️`
             });
             details.callback();
             return
@@ -470,7 +470,7 @@ export class TauntBot {
         }
         catch (err) {
             this.logger.error("Failed to connect to voice channel %s/%s: %s", item.channel.guild.name, item.channel.name, err);
-            await item.interaction.editReply({
+            await item.interaction?.editReply({
                 content: `Failed to connect to ${item.channel.name} ⚠️`
             });
             details.callback();
@@ -484,8 +484,8 @@ export class TauntBot {
                 details.callback();
             });
         connection.subscribe(details.playerobj);
-        if (item.channel.members.get(this.client.user.id).voice.serverMute) {
-            item.interaction.editReply({
+        if (this.client.user && item.channel.members.get(this.client.user?.id)?.voice.serverMute) {
+            item.interaction?.editReply({
                 content: `Failed to play to ${item.channel.name}, can't unmute ⚠️`,
             });
             details.callback();
@@ -496,7 +496,7 @@ export class TauntBot {
         }
         catch (err) {
             this.logger.error("Failed to play to voice channel %s/%s: %s", item.channel.guild.name, item.channel.name, err);
-            await item.interaction.editReply({
+            await item.interaction?.editReply({
                 content: `Failed to play to ${item.channel.name} ⚠️`
             });
             details.callback();
@@ -516,7 +516,7 @@ export class TauntBot {
     createFinishCallback(key: string): FinishCallback {
         const queues = this.queues;
         const players = this.players;
-        return (_old: Voice.AudioPlayerState = null, _new: Voice.AudioPlayerIdleState = null) => {
+        return (_old = null, _new = null) => {
             if (queues && this.shiftQueue(key)?.length) {
                 this.handleQueue(key, true);
                 return;
