@@ -78,12 +78,12 @@ export class TauntBot {
         });
 
         client.on(Events.GuildCreate, guild => {
-            this.logger.info('joined guild %s', guild.name);
+            this.logger.info('joined guild "%s"', guild.name);
             this.updateServerCount();
         });
 
         client.on(Events.GuildDelete, guild => {
-            guild.name && this.logger.info('left guild %s', guild.name);
+            guild.name && this.logger.info('left guild "%s"', guild.name);
             this.updateServerCount();
         });
 
@@ -120,7 +120,7 @@ export class TauntBot {
                 return;
             }
 
-            this.logger.info('got %s command in %s', interaction.commandName, interaction.guild?.name ?? '~~UNKNOWN~~');
+            this.logger.info('got %s command in "%s"', interaction.commandName, interaction.guild?.name ?? '~~UNKNOWN~~');
 
             switch (interaction.commandName) {
                 case Commands.MVP:
@@ -140,14 +140,14 @@ export class TauntBot {
                     } satisfies QueueItem;
                     const result = await this.queueAudio(item);
                     if (typeof result !== 'string') {
-                        this.logger.info('replying in channel "%s"', interaction.channel?.name ?? '~~UNKNOWN~~');
+                        this.logger.debug('replying in channel "%s"', interaction.channel?.name ?? '~~UNKNOWN~~');
                         try {
                             await interaction.reply({
                                 content: generateReply(result.len > 1, item)
                             });
                         }
                         catch (ex) {
-                            this.logger.error('failed to reply to command: %s', ex)
+                            this.logger.error('failed to reply to command: %o', ex)
                         }
                         result.handleQueue();
                     }
@@ -167,7 +167,7 @@ export class TauntBot {
                     const fields: APIEmbedField[] = [
                         {
                             name: 'Invite',
-                            value: `${hyperlink(`Invite ${client.user?.username ?? 'this bot'}`, `https://discordapp.com/oauth2/authorize?client_id=${client.user?.id ?? 0}&scope=bot&permissions=3163136`)} to your server`
+                            value: `${hyperlink(`Invite ${this.getClientUser().username}`, `https://discordapp.com/oauth2/authorize?client_id=${this.getClientUser().id}&scope=bot&permissions=3163136`)} to your server`
                         }
                     ];
                     if (conf.website) {
@@ -179,7 +179,7 @@ export class TauntBot {
                     if (conf.guild) {
                         fields.push({
                             name: 'Discord',
-                            value: `Discuss ${hyperlink(`${client.user?.username ?? 'this bot'} on Discord`, conf.guild)}`
+                            value: `Discuss ${hyperlink(`${this.getClientUser().username} on Discord`, conf.guild)}`
                         });
                     }
                     await interaction.reply(
@@ -188,11 +188,11 @@ export class TauntBot {
                             embeds: [
                                 {
                                     author: {
-                                        name: client.user?.username ?? 'this bot',
+                                        name: this.getClientUser().username,
                                         url: conf.website
                                     },
                                     thumbnail: {
-                                        url: client.user?.avatarURL() ?? 'https://raw.githubusercontent.com/CorySanin/tauntbot/refs/heads/master/logo.svg'
+                                        url: this.getClientUser().avatarURL() ?? 'https://raw.githubusercontent.com/CorySanin/tauntbot/refs/heads/master/logo.svg'
                                     },
                                     color: conf.color,
                                     fields
@@ -256,7 +256,7 @@ export class TauntBot {
                                     },
                                     {
                                         name: `/invite`,
-                                        value: `Generates a link to invite ${client.user?.username ?? 'Taunt Bot'} to a server near you!`
+                                        value: `Generates a link to invite ${this.getClientUser().username} to a server near you!`
                                     },
                                     {
                                         name: `/help`,
@@ -281,7 +281,7 @@ export class TauntBot {
                 const timeout = setTimeout(reject, 8000, "failed to log in.");
                 await client.login(conf.token);
                 clearTimeout(timeout);
-                this.logger.info('logged in as "%s"', client.user?.username ?? 'a bot?');
+                this.logger.info('logged in as "%s"', this.getClientUser().username);
                 await this.registerCommands(conf.token);
                 resolve();
             });
@@ -335,6 +335,13 @@ export class TauntBot {
         return path.resolve(path.join(this.audioDir, filename));
     }
 
+    getClientUser() {
+        if (!this.client.user) {
+            throw new Error('client user is null');
+        }
+        return this.client.user;
+    }
+
     private async handleUpload(interaction: ChatInputCommandInteraction) {
         const tauntType = resolveTauntType(interaction.options.getString(OptionNames.TYPE));
         const audio = interaction.options.getAttachment(OptionNames.AUDIO);
@@ -352,7 +359,7 @@ export class TauntBot {
             });
             return;
         }
-        this.logger.debug('uploaded audio duration: %n', audio.duration);
+        this.logger.debug('uploaded audio duration: %d', audio.duration);
         const params = TauntParameters[tauntType];
         if ((audio.duration || 0) > params.maxDuration) {
             await interaction.reply({
@@ -368,7 +375,7 @@ export class TauntBot {
         const tmpDir = await fsp.mkdtemp(path.join(this.audioDir, 'tb_'));
         const outLocation = path.join(tmpDir, audio.name)
         const output = fs.createWriteStream(outLocation);
-        this.logger.debug('downloading taunt to %s', outLocation);
+        this.logger.debug('downloading taunt to "%s"', outLocation);
         await (await ky.get(audio.url)).body?.pipeTo(Writable.toWeb(output));
         output.close();
 
@@ -385,7 +392,7 @@ export class TauntBot {
             });
         }
         catch (ex) {
-            this.logger.error('audio conversion failed: %s', ex);
+            this.logger.error('audio conversion failed: %o', ex);
             await interaction.editReply({
                 content: `${tauntType} taunt upload failed 😬`
             });
@@ -426,7 +433,8 @@ export class TauntBot {
         const queues = this.queues;
         const key = getQueueKey(item);
         if (!key) {
-            return { len: -1, handleQueue: () => null };
+            this.logger.error("Failed to get queue key for channel: %o", item.channel);
+            return `Failed to add that ${item.type} taunt to the queue.`;
         }
         if (item.queued = !!queues[key]) {
             queues[key].push(item);
@@ -478,7 +486,7 @@ export class TauntBot {
             await Voice.entersState(connection, Voice.VoiceConnectionStatus.Ready, 5000);
         }
         catch (err) {
-            this.logger.error("Failed to connect to voice channel %s/%s: %s", item.channel.guild.name, item.channel.name, err);
+            this.logger.error("Failed to connect to voice channel %s/%s: %o", item.channel.guild.name, item.channel.name, err);
             await item.interaction?.editReply({
                 content: `Failed to connect to ${item.channel.name} ⚠️`
             });
@@ -489,11 +497,11 @@ export class TauntBot {
         if (item.channel.joinable)
 
             connection.on('error', (err) => {
-                this.logger.error('VoiceConnection Error: %s', err);
+                this.logger.error('VoiceConnection Error: %o', err);
                 details.callback();
             });
         connection.subscribe(details.playerobj);
-        if (this.client.user && item.channel.members.get(this.client.user?.id)?.voice.serverMute) {
+        if (item.channel.members.get(this.getClientUser().id)?.voice.serverMute) {
             item.interaction?.editReply({
                 content: `Failed to play to ${item.channel.name}, can't unmute ⚠️`,
             });
@@ -504,7 +512,7 @@ export class TauntBot {
             await this.playAudio(key);
         }
         catch (err) {
-            this.logger.error("Failed to play to voice channel %s/%s: %s", item.channel.guild.name, item.channel.name, err);
+            this.logger.error("Failed to play to voice channel %s/%s: %o", item.channel.guild.name, item.channel.name, err);
             await item.interaction?.editReply({
                 content: `Failed to play to ${item.channel.name} ⚠️`
             });
